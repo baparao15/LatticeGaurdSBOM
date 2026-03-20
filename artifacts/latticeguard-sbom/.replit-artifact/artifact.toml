@@ -1,0 +1,31 @@
+kind = "web"
+previewPath = "/"
+title = "LatticeGuard SBOM"
+version = "1.0.0"
+id = "artifacts/latticeguard-sbom"
+router = "path"
+
+[[integratedSkills]]
+name = "react-vite"
+version = "1.0.0"
+
+[[services]]
+name = "web"
+paths = [ "/" ]
+localPort = 19634
+
+[services.development]
+run = "pnpm --filter @workspace/latticeguard-sbom run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/latticeguard-sbom", "run", "build" ]
+publicDir = "artifacts/latticeguard-sbom/dist/public"
+serve = "static"
+
+[[services.production.rewrites]]
+from = "/*"
+to = "/index.html"
+
+[services.env]
+PORT = "19634"
+BASE_PATH = "/"

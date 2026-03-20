@@ -1,0 +1,337 @@
+You are an expert full-stack developer and UI/UX designer specializing in 
+cybersecurity tools. Build me a complete, fully functional, 
+production-quality web application called "LatticeGuard SBOM" for a 
+hackathon competition on Post-Quantum Cryptography.
+
+═══════════════════════════════════════════════════════════
+TECH STACK
+═══════════════════════════════════════════════════════════
+
+- React (single HTML file with CDN imports, no build step needed)
+- Tailwind CSS via CDN for styling
+- Pure JavaScript for all logic
+- Web Crypto API (built into browsers) for SHA-256 hashing
+- Simulate ML-DSA signing with a realistic mock that mirrors 
+  real ML-DSA behavior (key generation, sign, verify)
+  since liboqs-wasm may not be CDN available
+- All logic runs CLIENT-SIDE only. No backend needed.
+
+═══════════════════════════════════════════════════════════
+DESIGN LANGUAGE — MAKE IT STUNNING
+═══════════════════════════════════════════════════════════
+
+Theme: Dark cyberpunk/quantum aesthetic
+- Background: Deep black (#0a0a0f) with subtle dark navy sections
+- Accent colors: 
+    Primary: Electric blue (#00d4ff)  
+    Secondary: Quantum purple (#7c3aed)
+    Success: Neon green (#00ff88)
+    Danger: Red alert (#ff3366)
+    Warning: Amber (#f59e0b)
+- Font: Use 'Space Grotesk' or 'Inter' from Google Fonts
+- Borders: Subtle glowing borders using box-shadow
+- Cards: Dark glassmorphism effect 
+  (background: rgba(255,255,255,0.03), backdrop-filter: blur)
+- Animated gradient header
+- Particle/grid background effect using CSS
+- All state transitions must be smooth with CSS transitions
+- Make it look like a real enterprise security dashboard
+
+═══════════════════════════════════════════════════════════
+PAGE STRUCTURE — 6 SECTIONS
+═══════════════════════════════════════════════════════════
+
+────────────────────────────────────────
+SECTION 1: HERO / NAVBAR
+────────────────────────────────────────
+- Navbar: "LatticeGuard" logo (shield icon) on left
+  + nav links: Dashboard, Sign, Verify, About
+  + top-right: a small badge "FIPS 204 Compliant" in green
+  
+- Hero section below navbar:
+  - Animated headline: "Quantum-Safe Software Supply Chain Security"
+  - Subtext: "Sign every dependency with ML-DSA. 
+    Unbreakable by classical or quantum computers."
+  - Two CTA buttons: 
+    [🔐 Start Signing] [🔍 Verify SBOM]
+  - Below buttons: 3 stats in a row:
+    "NIST Approved" | "ML-DSA-65" | "Zero-Trust Pipeline"
+  - Subtle animated background: CSS grid lines or 
+    floating hexagon pattern
+
+────────────────────────────────────────
+SECTION 2: LIVE THREAT TICKER
+────────────────────────────────────────
+- A scrolling marquee/ticker bar just below hero
+- Dark red/amber background strip
+- Auto-scrolling text showing fake but realistic threats:
+  "⚠ HNDL Attack Detected on US Treasury — 2024"
+  "⚠ SolarWinds Supply Chain Breach — 18,000 orgs affected"  
+  "⚠ Quantum Computer milestone: 1000+ qubits achieved — IBM 2023"
+  "⚠ CISA mandates PQC migration for all federal agencies by 2030"
+  "⚠ RSA-2048 estimated breakable in ~10 years by cryptographically 
+     relevant QC"
+- This auto-scrolls infinitely using CSS animation
+
+────────────────────────────────────────
+SECTION 3: HOW IT WORKS (Visual Pipeline)
+────────────────────────────────────────
+- Section title: "The LatticeGuard Pipeline"
+- Show 4 steps as connected cards with arrows between them:
+
+  [📄 Upload Manifest] → [#️⃣ SHA-256 Hash] → 
+  [🔐 ML-DSA Sign] → [✅ Manifest of Integrity]
+
+- Each card has:
+  - Icon (large emoji or SVG)
+  - Step number
+  - Title
+  - 2-line description
+- Animate: cards fade in on scroll (use IntersectionObserver)
+- Below pipeline: 2-column feature highlights:
+  Left: "Component-Level Granularity" with description
+  Right: "Hybrid Signing Architecture" with description
+
+────────────────────────────────────────
+SECTION 4: MAIN TOOL — THE SIGNER (Most Important Section)
+────────────────────────────────────────
+This is the core functional section. Split into 3 tabs:
+[Generate SBOM] [Sign SBOM] [Export & Share]
+
+── TAB 1: GENERATE SBOM ──
+- Large text area titled "Paste your dependencies"
+- Placeholder shows example:
+    flask==2.3.0
+    numpy==1.24.0  
+    requests==2.31.0
+    django==4.2.0
+    cryptography==41.0.0
+    pandas==2.0.0
+    sqlalchemy==2.0.0
+    celery==5.3.0
+    redis==4.6.0
+    gunicorn==21.2.0
+
+- Dropdown to select type: [Python requirements.txt] 
+  or [Node package.json]
+- Big button: [⚡ Generate SBOM]
+- On click: parse the text, generate a proper CycloneDX-style 
+  JSON SBOM with fields:
+    bomFormat, specVersion, serialNumber, metadata, components[]
+  Each component has: type, name, version, purl, hashes(SHA-256)
+  
+- Show the generated JSON in a styled code block 
+  (syntax highlighted, dark background)
+- Show a summary: "X components discovered" with a 
+  small table listing name | version | hash (first 8 chars...)
+- Show a green success toast notification
+
+── TAB 2: SIGN SBOM ──
+Layout: Two columns
+
+LEFT COLUMN — Key Management Panel:
+- Title: "🔑 Quantum Key Vault"
+- Show current key status (initially "No keys generated")
+- Button: [Generate ML-DSA-65 Keypair]
+- On click: 
+  - Show loading spinner with text 
+    "Generating lattice-based keypair..."
+  - After 1.5s delay: show key details:
+    Algorithm: ML-DSA-65 (FIPS 204)
+    Public Key: [show first 32 chars]... [Copy button]
+    Private Key: ●●●●●●●●●●●● [Hidden for security]
+    Key Size: 1,952 bytes (public) / 4,032 bytes (private)
+    Security Level: NIST Level 3
+    Created: [timestamp]
+  - Also show Ed25519 classical key alongside for hybrid
+  - Small info box: "🔒 Keys generated locally. 
+    Private key never leaves your browser."
+
+RIGHT COLUMN — Signing Panel:
+- Title: "📝 Sign Components"
+- Shows the component list from Tab 1
+  (if no SBOM, show message to generate first)
+- Button: [🔐 Sign All with ML-DSA + Ed25519]
+- On click: show animated progress:
+  - Progress bar filling up
+  - List items animating one by one:
+    "Signing lodash@4.17.21... ✅"
+    "Signing express@4.18.2... ✅" (with slight delay each)
+- After all signed: show summary stats:
+    ✅ 10/10 components signed
+    Algorithm: Hybrid (Ed25519 + ML-DSA-65)  
+    Total signature data: ~24.2 KB
+    Signing time: 0.3ms
+- Each component row shows:
+  Name | Version | Status badge | 
+  Sig preview (first 12 chars of hex)
+
+── TAB 3: EXPORT & SHARE ──
+- Show the final signed SBOM JSON in a code block
+- The JSON should include the signatures field per component:
+  {
+    "name": "flask",
+    "version": "2.3.0", 
+    "hashes": [...],
+    "signatures": {
+      "ed25519": "a3f8b2c1d4...(64 bytes)",
+      "ml_dsa_65": "7f3a9c2b1e...(2420 bytes)"
+    },
+    "signed_at": "2024-01-15T10:30:00Z",
+    "signer": "LatticeGuard-v1.0"
+  }
+- Two download buttons:
+  [⬇ Download .signed.json] [⬇ Download Public Key]
+- A "Share Verification Link" section that generates a 
+  fake shareable URL
+- A QR code placeholder area
+
+────────────────────────────────────────
+SECTION 5: VERIFICATION ENGINE
+────────────────────────────────────────
+- Section title: "🔍 Quantum-Safe Verification"
+- Large drag-and-drop zone: 
+  "Drop your .signed.json here or click to upload"
+  Styled with dashed border, icon, hover effect
+
+- Below: Button [🔍 Verify Signatures]
+
+- On verify (simulate with a demo JSON if nothing uploaded):
+  Show an animated verification sequence:
+  
+  "Parsing SBOM manifest..." ✅
+  "Loading ML-DSA public key..." ✅  
+  "Verifying component hashes..." ✅
+  "Checking ML-DSA signatures..." ✅
+  "Checking Ed25519 signatures..." ✅
+  "Cross-validating hybrid signatures..." ✅
+  
+  Then show RESULTS PANEL:
+  - Big green banner: "✅ ALL SIGNATURES VALID — SAFE TO INSTALL"
+  - Table: each component with 
+    Name | Hash Status | ML-DSA | Ed25519 | Overall
+    All showing green checkmarks
+  
+- Add a "🔴 Simulate Tamper Attack" button:
+  On click: randomly mark 1-2 components as TAMPERED
+  Change their row to red
+  Show: "🚨 QUANTUM-SAFE ALERT: Tamper detected in 
+  requests@2.31.0 — Installation Blocked"
+  Show a big red alert banner
+  
+- This tamper demo is the MOST IMPRESSIVE part for judges.
+  Make the red alert dramatic and impossible to miss.
+
+────────────────────────────────────────
+SECTION 6: COMPARISON DASHBOARD
+────────────────────────────────────────
+- Title: "Classical vs Quantum-Safe: Side by Side"
+
+- Left card (Classical — red tinted):
+  Algorithm: RSA-2048 / ECDSA-256
+  Signature Size: 64 bytes
+  Quantum Resistant: ❌ NO
+  Breakable by Shor's: ✅ YES  
+  NIST Approved (PQC): ❌ NO
+  Per-Component Signing: ❌ NO
+  
+- Right card (LatticeGuard — green tinted):
+  Algorithm: ML-DSA-65 + Ed25519
+  Signature Size: 2,420 bytes
+  Quantum Resistant: ✅ YES
+  Breakable by Shor's: ❌ NO
+  NIST Approved (PQC): ✅ YES (FIPS 204)
+  Per-Component Signing: ✅ YES
+
+- Below: an animated bar chart (pure CSS/JS, no library):
+  Showing security levels:
+  RSA-2048 vs Quantum: [████░░░░░░] 40%  
+  ECC-256 vs Quantum:  [███░░░░░░░] 30%
+  ML-DSA-65 vs Quantum:[██████████] 100%
+
+- A "Why Lattices?" explanation box with clean typography
+
+────────────────────────────────────────
+FOOTER
+────────────────────────────────────────
+- "LatticeGuard SBOM | Team INFIFNITE | QC² Hackathon 2025"
+- "Built with NIST FIPS 204 | ML-DSA-65 | CycloneDX"
+- GitHub/LinkedIn placeholder links
+
+═══════════════════════════════════════════════════════════
+FUNCTIONAL REQUIREMENTS (Must Actually Work)
+═══════════════════════════════════════════════════════════
+
+1. SBOM Generation:
+   - Parse pasted requirements.txt or package.json text
+   - Generate real SHA-256 hashes using Web Crypto API:
+     const hash = await crypto.subtle.digest('SHA-256', 
+       new TextEncoder().encode(componentString))
+   - Output valid CycloneDX JSON structure
+   - Generate real serial number (UUID v4)
+
+2. Key Generation (Simulated ML-DSA):
+   - Use Web Crypto API to generate a real Ed25519 keypair:
+     await crypto.subtle.generateKey({name:"Ed25519"}, 
+       true, ["sign","verify"])
+   - Simulate ML-DSA by generating a random 1952-byte 
+     public key and 4032-byte private key using 
+     crypto.getRandomValues()
+   - Display key metadata accurately
+
+3. Signing (Simulated Hybrid):
+   - For each component: 
+     - Compute real SHA-256 hash of component JSON
+     - Sign with real Ed25519 using Web Crypto API
+     - Simulate ML-DSA signature as 2420 random bytes 
+       (crypto.getRandomValues)
+     - Store both signatures in component object
+   - Show realistic progress with timing
+
+4. Verification:
+   - Verify real Ed25519 signatures using Web Crypto API
+   - Simulate ML-DSA verification (always passes unless 
+     tamper button pressed)
+   - Tamper simulation: modify hash of 1 random component 
+     before verification, causing Ed25519 to actually fail
+
+5. Download:
+   - Implement actual file download using Blob + 
+     URL.createObjectURL
+   - File should be valid downloadable JSON
+
+6. All state persists within the session (use JS variables)
+
+═══════════════════════════════════════════════════════════
+MICRO-INTERACTIONS & POLISH
+═══════════════════════════════════════════════════════════
+
+- Toast notifications (top-right, auto-dismiss after 3s) 
+  for all major actions
+- Loading spinners with quantum-themed messages:
+  "Solving lattice equations...", 
+  "Generating high-entropy randomness...",
+  "Computing SVP-hard signatures..."
+- Copy-to-clipboard buttons on all code/key displays
+- Smooth tab switching animation
+- Hover effects on all buttons (glow effect)
+- All buttons have loading states (disabled + spinner while processing)
+- Smooth scroll for nav links
+- Number counters that animate up on page load for stats
+
+═══════════════════════════════════════════════════════════
+IMPORTANT NOTES
+═══════════════════════════════════════════════════════════
+
+- Everything in ONE HTML file
+- No npm, no build step, CDN only
+- Must work by just opening in a browser
+- The tamper detection demo MUST work and be dramatic
+- All JSON outputs must be properly formatted and realistic
+- Add comments in code explaining PQC concepts
+- Make it feel like a real production security tool,
+  not a student project
+- The judges are quantum computing experts — 
+  use correct terminology everywhere
+- Include subtle educational tooltips on technical terms
+  (hover over "ML-DSA" shows a small tooltip explaining it)

@@ -1,0 +1,16 @@
+packages:
+  "framer-motion": "For high-quality page transitions, scroll animations, and micro-interactions"
+  "react-dropzone": "For the drag and drop verification zone"
+  "lucide-react": "For beautiful consistent iconography"
+  "clsx": "For conditional class merging"
+  "tailwind-merge": "For merging Tailwind classes effectively"
+
+images:
+  - path: "artifacts/latticeguard-sbom/public/images/quantum-bg.png"
+    description: "Abstract dark cyberpunk background with glowing electric blue and neon purple geometric lattice structures, quantum computing concept, deep black background, cinematic lighting"
+    aspect_ratio: "16:9"
+
+notes:
+  - Fully client-side application using Web Crypto API
+  - Ed25519 and simulated ML-DSA-65 algorithms used for signing/verification
+  - CycloneDX JSON format generated dynamically
