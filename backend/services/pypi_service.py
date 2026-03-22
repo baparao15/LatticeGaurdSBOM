@@ -19,16 +19,21 @@ async def fetch_package(name: str, version: str = None) -> Component:
             if all_resp.status_code == 200:
                 all_data = all_resp.json()
                 available = list(all_data["releases"].keys())
-                def version_key(v):
-                    parts = v.split(".")
+
+                def _ver_key(v):
                     nums = []
-                    for p in parts:
+                    for p in v.split("."):
                         try:
                             nums.append(int(p))
                         except ValueError:
                             nums.append(0)
                     return nums
-                available_sorted = sorted(available, key=version_key, reverse=True)[:10]
+
+                available_sorted = sorted(
+                    [v for v in available if all_data["releases"][v]],
+                    key=_ver_key,
+                    reverse=True,
+                )[:10]
                 raise ValueError(
                     f"Version {version} of {name} does not exist on PyPI. "
                     f"Available versions: {available_sorted}"
@@ -42,21 +47,24 @@ async def fetch_package(name: str, version: str = None) -> Component:
         size = 0
         upload_date = ""
 
-        releases = data.get("releases", {})
-        version_key_str = version or info["version"]
-        release_files = releases.get(version_key_str, [])
+        # When fetching a specific version, PyPI returns the dist files in
+        # data["urls"] — NOT in data["releases"][version] (which is empty).
+        # When fetching latest (no version), files are in data["urls"] too.
+        url_files = data.get("urls", [])
 
-        for file_info in release_files:
+        # Prefer wheel, fall back to sdist
+        for file_info in url_files:
             if file_info["filename"].endswith(".whl"):
                 sha256 = file_info["digests"]["sha256"]
                 size = file_info["size"]
-                upload_date = file_info["upload_time"]
+                upload_date = file_info.get("upload_time", "")
                 break
 
-        if not sha256 and release_files:
-            sha256 = release_files[0]["digests"]["sha256"]
-            size = release_files[0]["size"]
-            upload_date = release_files[0]["upload_time"]
+        if not sha256 and url_files:
+            file_info = url_files[0]
+            sha256 = file_info["digests"]["sha256"]
+            size = file_info["size"]
+            upload_date = file_info.get("upload_time", "")
 
         requires = info.get("requires_dist") or []
         direct_deps = []
@@ -72,9 +80,9 @@ async def fetch_package(name: str, version: str = None) -> Component:
             ecosystem="pypi",
             purl=f"pkg:pypi/{info['name']}@{info['version']}",
             description=(info.get("summary") or "")[:300],
-            author=info.get("author") or "Unknown",
+            author=info.get("author") or info.get("maintainer") or "Unknown",
             license=info.get("license") or "Unknown",
-            homepage=info.get("home_page") or "",
+            homepage=info.get("home_page") or info.get("project_url") or "",
             sha256=sha256,
             size_bytes=size,
             upload_date=upload_date,

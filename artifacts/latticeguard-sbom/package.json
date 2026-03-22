@@ -75,6 +75,7 @@
     "zod": "catalog:"
   },
   "dependencies": {
+    "jszip": "^3.10.1",
     "react-dropzone": "^15.0.0"
   }
 }
