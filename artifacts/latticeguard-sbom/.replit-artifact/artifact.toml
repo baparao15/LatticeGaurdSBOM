@@ -29,3 +29,14 @@ to = "/index.html"
 [services.env]
 PORT = "19634"
 BASE_PATH = "/"
+
+[[services]]
+name = "python-backend"
+paths = [ "/latticeguard-api" ]
+localPort = 8000
+
+[services.development]
+run = "cd /home/runner/workspace/backend && python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+
+[services.env]
+PORT = "8000"

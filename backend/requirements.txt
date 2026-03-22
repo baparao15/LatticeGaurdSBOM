@@ -1,0 +1,7 @@
+fastapi
+uvicorn[standard]
+liboqs-python
+cryptography
+httpx
+python-multipart
+packaging

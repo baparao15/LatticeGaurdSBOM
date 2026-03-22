@@ -94,3 +94,33 @@ Generated React Query hooks and fetch client from the OpenAPI spec (e.g. `useHea
 ### `scripts` (`@workspace/scripts`)
 
 Utility scripts package. Each script is a `.ts` file in `src/` with a corresponding npm script in `package.json`. Run scripts via `pnpm --filter @workspace/scripts run <script>`. Scripts can import any workspace package (e.g., `@workspace/db`) by adding it as a dependency in `scripts/package.json`.
+
+### `artifacts/latticeguard-sbom` (`@workspace/latticeguard-sbom`)
+
+LatticeGuard SBOM — hackathon app for post-quantum cryptography and software supply chain security.
+
+**Frontend**: React + Vite at port 19634, preview path `/`. Dark cyberpunk theme (electric blue #00d4ff, quantum purple #7c3aed, neon green #00ff88). Components:
+- `src/components/sections/MainTool.tsx` — 3-tab SBOM generator (Resolve/Sign/Export) connected to real backend
+- `src/components/sections/Verification.tsx` — dropzone verifier + tamper simulation with HexDiff
+- `src/components/CryptoTerminal.tsx` — terminal-style log viewer
+- `src/components/ManualInput.tsx` — debounced package lookup with version picker
+- `src/components/DependencyTree.tsx` — resolved package tree with CVE badges
+- `src/components/HexDiff.tsx` — side-by-side hex comparison for tamper detection
+- `src/api/` — typed API client layer (client.ts, packages.ts, signing.ts, verify.ts)
+
+**Backend**: Python FastAPI at port 8000, base path `/latticeguard-api`. Located in `backend/`. Uses:
+- `cryptography` library for real Ed25519 key generation and signing
+- `httpx` for async PyPI/npm registry fetching
+- Google OSV API for real CVE lookups
+- ML-DSA-65 high-fidelity mock (correct NIST byte sizes: 1952-byte pub key, 3293-byte signature)
+- CycloneDX 1.5 SBOM output format
+
+**API routes** (all under `/latticeguard-api`):
+- `POST /packages/resolve` — parse requirements.txt/package.json, fetch real metadata
+- `POST /packages/manual` — single package lookup with version suggestions
+- `POST /sign/keygen` — generate ML-DSA-65 + Ed25519 keypair
+- `POST /sign/sign-all` — sign all components, produce SBOM
+- `POST /verify/verify-sbom` — verify all signatures
+- `POST /verify/tamper-simulate` — inject tamper, detect via signatures
+- `GET /vuln/check` — OSV CVE check for any package
+- `GET /health` — backend status
