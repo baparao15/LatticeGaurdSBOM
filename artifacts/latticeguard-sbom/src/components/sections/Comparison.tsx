@@ -59,7 +59,7 @@ export default function Comparison() {
               </li>
               <li className="flex justify-between border-b border-white/5 pb-2">
                 <span className="text-muted-foreground">Signature Size</span>
-                <span className="text-white">2,420 bytes</span>
+                <span className="text-white">3,293 + 64 bytes (hybrid)</span>
               </li>
               <li className="flex justify-between border-b border-white/5 pb-2">
                 <span className="text-muted-foreground">Quantum Resistant</span>

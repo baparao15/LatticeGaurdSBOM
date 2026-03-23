@@ -5,7 +5,7 @@ export default function HowItWorks() {
   const steps = [
     { icon: <FileCode />, title: "Upload Manifest", desc: "Input requirements.txt or package.json" },
     { icon: <Hash />, title: "SHA-256 Hash", desc: "Generate immutable hash for every dependency" },
-    { icon: <Key />, title: "Hybrid Sign", desc: "Sign with ML-DSA-65 + Classical ECDSA" },
+    { icon: <Key />, title: "Hybrid Sign", desc: "Sign with ML-DSA-65 + Ed25519 (FIPS 204)" },
     { icon: <ShieldCheck />, title: "Quantum-Safe SBOM", desc: "Export verified CycloneDX JSON" },
   ];
 

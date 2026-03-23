@@ -12,7 +12,7 @@ version = "1.0.0"
 [[services]]
 name = "web"
 paths = [ "/" ]
-localPort = 19634
+localPort = 5173
 
 [services.development]
 run = "pnpm --filter @workspace/latticeguard-sbom run dev"
@@ -27,7 +27,7 @@ from = "/*"
 to = "/index.html"
 
 [services.env]
-PORT = "19634"
+PORT = "5173"
 BASE_PATH = "/"
 
 [[services]]
