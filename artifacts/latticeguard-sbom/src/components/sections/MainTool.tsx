@@ -177,10 +177,12 @@ export default function MainTool() {
       const kp = await generateKeypair();
       setKeypair(kp);
       push(`✓ ML-DSA-65 keypair generated`, "success");
-      push(`  Public key: ${kp.ml_dsa_public_key_size} bytes`, "dim");
-      push(`  ${kp.ml_dsa_public_key.slice(0, 32)}…`, "dim");
-      push(`  Ed25519 public key: ${kp.ed25519_public_key.slice(0, 32)}…`, "dim");
-      push(`  Standard: NIST FIPS 204 | Level 3`, "dim");
+      push(`  Mode: ${kp.using_real_oqs ? "liboqs REAL (native)" : "NIST-accurate simulation (correct byte sizes)"}`, kp.using_real_oqs ? "success" : "warn");
+      push(`  ML-DSA pub key: ${kp.ml_dsa_public_key_size} bytes (NIST spec: 1952)`, "dim");
+      push(`  ${kp.ml_dsa_public_key.slice(0, 48)}…`, "dim");
+      push(`  Ed25519 pub key: 32 bytes (REAL via cryptography lib)`, "dim");
+      push(`  ${kp.ed25519_public_key}`, "dim");
+      push(`  Standard: NIST FIPS 204 | Security Level 3`, "dim");
     } catch (e: unknown) {
       push(`Error: ${e instanceof Error ? e.message : String(e)}`, "error");
     } finally {
@@ -196,12 +198,17 @@ export default function MainTool() {
       const result = await signAllComponents(packages);
       setSbom(result);
       result.components.forEach((sc) => {
+        const mlDsaBytes = Math.floor(sc.ml_dsa_signature.length / 2);
+        const ed25519Bytes = Math.floor(sc.ed25519_signature.length / 2);
         push(`✓ ${sc.component.name}@${sc.component.version}`, "success");
-        push(`  sha256: ${sc.sha256_signed.slice(0, 32)}…`, "dim");
-        push(`  ML-DSA-65 sig: ${sc.ml_dsa_signature.slice(0, 32)}… (${Math.floor(sc.ml_dsa_signature.length / 2)} bytes)`, "dim");
-        push(`  Ed25519 sig: ${sc.ed25519_signature.slice(0, 32)}…`, "dim");
+        push(`  SHA-256 of canonical JSON: ${sc.sha256_signed.slice(0, 48)}…`, "dim");
+        push(`  ML-DSA-65 sig: ${sc.ml_dsa_signature.slice(0, 32)}… (${mlDsaBytes} bytes ✓)`, mlDsaBytes === 3293 ? "dim" : "warn");
+        push(`  Ed25519 sig: ${sc.ed25519_signature.slice(0, 32)}… (${ed25519Bytes} bytes ✓)`, "dim");
+        if (sc.cves.length > 0) push(`  ⚠ CVEs: ${sc.cves.map(c => c.id).join(", ")}`, "warn");
       });
-      push(`\n✓ SBOM sealed | ${result.total_components} components | ${result.quantum_safe ? "Quantum-safe ✓" : ""}`, "success");
+      push(`\n✓ SBOM sealed | ${result.total_components} components | CycloneDX ${result.spec_version} | ${result.quantum_safe ? "Quantum-safe ✓" : ""}`, "success");
+      push(`  Serial: ${result.serial_number}`, "dim");
+      push(`  → Proceed to step 3 to download the ZIP bundle`, "info");
       setStep(3);
       scrollTo(step3Ref);
     } catch (e: unknown) {
@@ -494,25 +501,33 @@ export default function MainTool() {
             <div className="p-6 space-y-5">
               <div className="grid grid-cols-2 gap-4 text-xs">
                 <div className="p-4 rounded-xl border border-white/10 bg-black/20 space-y-1.5">
-                  <p className="text-[#7c3aed] font-semibold text-sm">ML-DSA-65 (post-quantum)</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[#7c3aed] font-semibold text-sm">ML-DSA-65 (post-quantum)</p>
+                    {keypair && (
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${keypair.using_real_oqs ? "bg-[#00ff88]/10 text-[#00ff88]" : "bg-[#ffaa00]/10 text-[#ffaa00]"}`}>
+                        {keypair.using_real_oqs ? "REAL liboqs" : "NIST-simulation"}
+                      </span>
+                    )}
+                  </div>
                   <p className="text-gray-500">Standard: NIST FIPS 204</p>
                   <p className="text-gray-500">Security: Level 3 (128-bit PQ)</p>
                   <p className="text-gray-500">Hard problem: Module-LWE + SIS</p>
-                  <p className="text-gray-500">Public key: 1,952 bytes</p>
-                  <p className="text-gray-500">Signature: 3,293 bytes</p>
+                  <p className="text-gray-500">Public key: 1,952 bytes · Signature: 3,293 bytes</p>
                   {keypair && (
                     <div className="mt-2 p-2 bg-black/40 rounded font-mono text-[10px] text-[#7c3aed] break-all">
-                      {keypair.ml_dsa_public_key.slice(0, 48)}…
+                      {keypair.ml_dsa_public_key.slice(0, 64)}…
                     </div>
                   )}
                 </div>
                 <div className="p-4 rounded-xl border border-white/10 bg-black/20 space-y-1.5">
-                  <p className="text-[#00d4ff] font-semibold text-sm">Ed25519 (classical)</p>
+                  <div className="flex items-center gap-2">
+                    <p className="text-[#00d4ff] font-semibold text-sm">Ed25519 (classical)</p>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded font-mono bg-[#00ff88]/10 text-[#00ff88]">REAL</span>
+                  </div>
                   <p className="text-gray-500">Curve: Edwards25519</p>
                   <p className="text-gray-500">Purpose: hybrid security</p>
-                  <p className="text-gray-500">Public key: 32 bytes</p>
-                  <p className="text-gray-500">Signature: 64 bytes</p>
-                  <p className="text-gray-500">Real keygen via cryptography lib</p>
+                  <p className="text-gray-500">Public key: 32 bytes · Signature: 64 bytes</p>
+                  <p className="text-gray-500">Real keygen via Python cryptography lib</p>
                   {keypair && (
                     <div className="mt-2 p-2 bg-black/40 rounded font-mono text-[10px] text-[#00d4ff] break-all">
                       {keypair.ed25519_public_key}

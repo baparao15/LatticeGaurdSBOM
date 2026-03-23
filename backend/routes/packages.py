@@ -69,8 +69,11 @@ async def resolve_dependencies(input: DependencyInput):
             )
 
             transitive = []
-            if input.resolve_transitive and input.ecosystem == "pypi":
-                transitive = await pypi_service.resolve_transitive(name, version)
+            if input.resolve_transitive:
+                if input.ecosystem == "pypi":
+                    transitive = await pypi_service.resolve_transitive(name, version)
+                elif input.ecosystem == "npm":
+                    transitive = await npm_service.resolve_transitive(name, version)
 
             components.append({
                 "component": component.model_dump(),

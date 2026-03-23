@@ -54,3 +54,34 @@ async def fetch_package(name: str, version: str = None) -> Component:
             dependencies=deps[:20],
             depth=0,
         )
+
+
+async def resolve_transitive(
+    name: str,
+    version: str,
+    visited: set = None,
+    depth: int = 0,
+) -> list:
+    if visited is None:
+        visited = set()
+
+    key = name.lower()
+    if key in visited or depth > 3:
+        return []
+
+    visited.add(key)
+    tree = []
+
+    try:
+        component = await fetch_package(name, version)
+        component.depth = depth
+
+        for dep_name in component.dependencies[:8]:
+            sub_deps = await resolve_transitive(dep_name, None, visited, depth + 1)
+            tree.extend(sub_deps)
+
+        tree.append(component)
+    except Exception:
+        pass
+
+    return tree
