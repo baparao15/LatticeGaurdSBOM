@@ -17,6 +17,43 @@ env = { "CI" = "true" }
 [workflows]
 runButton = "Project"
 
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "LatticeGuard Frontend"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "LatticeGuard Backend"
+
+[[workflows.workflow]]
+name = "LatticeGuard Frontend"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "PORT=19634 BASE_PATH=/ pnpm --filter @workspace/latticeguard-sbom run dev"
+waitForPort = 19634
+
+[[workflows.workflow]]
+name = "LatticeGuard Backend"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd /home/runner/workspace/backend && python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+waitForPort = 8000
+
+[workflows.workflow.metadata]
+outputType = "console"
+
 [agent]
 stack = "PNPM_WORKSPACE"
 expertMode = true

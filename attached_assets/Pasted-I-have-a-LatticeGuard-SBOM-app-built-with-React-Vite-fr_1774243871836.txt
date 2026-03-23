@@ -1,0 +1,154 @@
+I have a LatticeGuard SBOM app built with React + Vite 
+frontend and Python FastAPI backend.
+
+Audit this codebase completely. I need to know exactly 
+what is REAL vs FAKE/SIMULATED in this app.
+
+Check every single thing:
+
+═══════════════════════════════════════
+BACKEND CHECKS
+═══════════════════════════════════════
+
+1. PYPI FETCHING
+   - Is it actually hitting https://pypi.org/pypi/{name}/{version}/json ?
+   - Is the SHA-256 coming from PyPI's response 
+     (data.urls[].digests.sha256) or is it computed locally 
+     or hardcoded?
+   - If version doesn't exist, does it actually return 
+     real available versions from PyPI or a hardcoded list?
+   - Show me the exact line where SHA-256 is extracted.
+
+2. CVE CHECKING
+   - Is it actually hitting https://api.osv.dev/v1/query ?
+   - Is the POST body sending real package name, version, 
+     ecosystem to OSV?
+   - Are CVE IDs like "CVE-2023-30861" coming from OSV 
+     response or hardcoded?
+   - Show me the exact API call.
+
+3. ML-DSA SIGNING
+   - Is liboqs actually imported and used?
+   - Is oqs.Signature("ML-DSA-65") actually called?
+   - Is signer.generate_keypair() actually called?
+   - Is signer.sign(hash) actually called?
+   - Or is the signature just random bytes / hardcoded hex?
+   - Show me exact lines where signing happens.
+
+4. ED25519 SIGNING
+   - Is Ed25519PrivateKey.generate() actually called?
+   - Is private_key.sign(hash) actually called?
+   - Or is it faked?
+   - Show me exact lines.
+
+5. VERIFICATION
+   - Is crypto.subtle.verify() or equivalent actually called?
+   - Does verification actually return False when 
+     data is tampered?
+   - Or does it just return hardcoded true/false?
+   - Show me the tamper simulation logic — 
+     does it ACTUALLY modify the component data 
+     before re-verifying?
+
+6. TRANSITIVE DEPENDENCIES
+   - Is it actually recursively fetching sub-dependencies 
+     from PyPI?
+   - Or is it returning a hardcoded list of deps?
+   - Show me the recursive call.
+
+═══════════════════════════════════════
+FRONTEND CHECKS
+═══════════════════════════════════════
+
+7. API CALLS
+   - Is the frontend actually calling 
+     http://localhost:8000/api/... ?
+   - Or is it using mock data / setTimeout fake delays?
+   - Show me every fetch/axios call.
+
+8. TERMINAL LOGS
+   - Are the terminal log lines coming from 
+     real backend responses?
+   - Or are they hardcoded strings that just 
+     appear with setTimeout?
+
+9. SHA-256 DISPLAY
+   - Is the hash shown in the UI the real hash 
+     returned by the backend?
+   - Or is it a randomly generated hex string 
+     on the frontend?
+
+10. SIGNATURE DISPLAY
+    - Is the ML-DSA signature shown in the UI 
+      the real bytes from liboqs?
+    - What is its length? Should be 3293 bytes 
+      for ML-DSA-65.
+    - If it shows 64 bytes it is fake.
+
+11. VERSION ERROR
+    - If I type flask==1.000.0, does the error card 
+      show versions fetched from PyPI right now?
+    - Or a hardcoded list?
+
+12. DEPENDENCY TREE
+    - Are the transitive deps shown in the tree 
+      real deps of the package?
+    - Example: flask should show werkzeug, jinja2, 
+      click — not random names.
+
+═══════════════════════════════════════
+TELL ME FOR EACH:
+═══════════════════════════════════════
+
+For every item above answer:
+  STATUS: REAL / FAKE / PARTIAL
+  EVIDENCE: show the exact code line
+  IF FAKE: show me exactly what to change 
+           to make it real
+
+Also run these specific tests and show output:
+
+TEST 1: Does this return real PyPI data?
+  curl -X POST http://localhost:8000/api/packages/manual \
+  -H "Content-Type: application/json" \
+  -d '{"packages":[{"name":"flask",
+       "version":"1.000.0","ecosystem":"pypi"}]}'
+  
+  Expected: error with real available versions
+  If it returns success or fake versions → FAKE
+
+TEST 2: Does this return a real CVE?
+  curl -X POST http://localhost:8000/api/packages/manual \
+  -H "Content-Type: application/json" \
+  -d '{"packages":[{"name":"flask",
+       "version":"2.3.0","ecosystem":"pypi"}]}'
+  
+  Expected: CVE-2023-30861 in response
+  If no CVEs or different CVE ID → FAKE
+
+TEST 3: Is ML-DSA signature the right size?
+  After signing any component, check:
+  len(bytes.fromhex(ml_dsa_signature)) == 3293
+  If not 3293 bytes → NOT real ML-DSA-65
+
+TEST 4: Does tamper actually break verification?
+  Sign one component.
+  Modify any field in component data.
+  Re-verify.
+  Result must be False.
+  If still True → verification is fake.
+
+TEST 5: Does the dependency tree show 
+        real sub-dependencies?
+  Fetch flask==2.3.3
+  Response must include werkzeug, jinja2, 
+  click, itsdangerous in dependencies.
+  If not → transitive resolution is fake.
+
+Give me a final report card:
+  ✅ REAL    — actually works
+  ⚠️  PARTIAL — works but incomplete  
+  ❌ FAKE    — hardcoded or simulated
+
+One line per feature.
+Then fix everything marked ⚠️ or ❌.
