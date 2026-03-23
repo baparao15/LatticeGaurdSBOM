@@ -8,6 +8,15 @@ export interface CVE {
   published: string;
 }
 
+export interface PackageFile {
+  filename: string;
+  file_type: "wheel" | "sdist" | "egg" | "installer" | "other";
+  size_bytes: number;
+  sha256: string;
+  python_version?: string;
+  requires_python?: string;
+}
+
 export interface Component {
   name: string;
   version: string;
@@ -22,6 +31,9 @@ export interface Component {
   upload_date: string;
   dependencies: string[];
   depth: number;
+  file_count: number;
+  file_types: string[];
+  files: PackageFile[];
 }
 
 export interface ResolvedPackage {

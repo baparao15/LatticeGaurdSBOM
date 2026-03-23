@@ -1,8 +1,24 @@
 import httpx
 import re
-from models.schemas import Component
+from models.schemas import Component, PackageFile
 
 PYPI_BASE = "https://pypi.org/pypi"
+
+
+def _classify_file(filename: str, packagetype: str = "") -> str:
+    if filename.endswith(".whl"):
+        return "wheel"
+    if packagetype == "bdist_wheel":
+        return "wheel"
+    if filename.endswith(".tar.gz") or filename.endswith(".tar.bz2"):
+        return "sdist"
+    if filename.endswith(".zip") and packagetype == "sdist":
+        return "sdist"
+    if filename.endswith(".egg"):
+        return "egg"
+    if filename.endswith(".exe") or filename.endswith(".msi"):
+        return "installer"
+    return "other"
 
 
 async def fetch_package(name: str, version: str = None) -> Component:
@@ -47,24 +63,51 @@ async def fetch_package(name: str, version: str = None) -> Component:
         size = 0
         upload_date = ""
 
-        # When fetching a specific version, PyPI returns the dist files in
-        # data["urls"] — NOT in data["releases"][version] (which is empty).
-        # When fetching latest (no version), files are in data["urls"] too.
         url_files = data.get("urls", [])
 
-        # Prefer wheel, fall back to sdist
-        for file_info in url_files:
-            if file_info["filename"].endswith(".whl"):
-                sha256 = file_info["digests"]["sha256"]
-                size = file_info["size"]
-                upload_date = file_info.get("upload_time", "")
+        # Collect ALL files with classification
+        package_files: list[PackageFile] = []
+        seen_filenames = set()
+        for fi in url_files:
+            fname = fi["filename"]
+            if fname in seen_filenames:
+                continue
+            seen_filenames.add(fname)
+            ftype = _classify_file(fname, fi.get("packagetype", ""))
+            pf = PackageFile(
+                filename=fname,
+                file_type=ftype,
+                size_bytes=fi["size"],
+                sha256=fi["digests"]["sha256"],
+                python_version=fi.get("python_version") or None,
+                requires_python=fi.get("requires_python") or None,
+            )
+            package_files.append(pf)
+
+        # Unique file types present
+        file_types_set: list[str] = []
+        for pf in package_files:
+            if pf.file_type not in file_types_set:
+                file_types_set.append(pf.file_type)
+
+        # Primary hash: prefer wheel, then first file
+        for pf in package_files:
+            if pf.file_type == "wheel":
+                sha256 = pf.sha256
+                size = pf.size_bytes
+                # find upload_time from original url_files
+                for fi in url_files:
+                    if fi["filename"] == pf.filename:
+                        upload_date = fi.get("upload_time", "")
                 break
 
-        if not sha256 and url_files:
-            file_info = url_files[0]
-            sha256 = file_info["digests"]["sha256"]
-            size = file_info["size"]
-            upload_date = file_info.get("upload_time", "")
+        if not sha256 and package_files:
+            sha256 = package_files[0].sha256
+            size = package_files[0].size_bytes
+            for fi in url_files:
+                if fi["filename"] == package_files[0].filename:
+                    upload_date = fi.get("upload_time", "")
+            
 
         requires = info.get("requires_dist") or []
         direct_deps = []
@@ -88,6 +131,9 @@ async def fetch_package(name: str, version: str = None) -> Component:
             upload_date=upload_date,
             dependencies=direct_deps[:20],
             depth=0,
+            file_count=len(package_files),
+            file_types=file_types_set,
+            files=package_files,
         )
 
 

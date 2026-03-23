@@ -18,6 +18,15 @@ class ManualPackageInput(BaseModel):
     packages: List[PackageQuery]
 
 
+class PackageFile(BaseModel):
+    filename: str
+    file_type: str
+    size_bytes: int
+    sha256: str
+    python_version: Optional[str] = None
+    requires_python: Optional[str] = None
+
+
 class Component(BaseModel):
     name: str
     version: str
@@ -32,6 +41,9 @@ class Component(BaseModel):
     upload_date: str
     dependencies: List[str]
     depth: int = 0
+    file_count: int = 0
+    file_types: List[str] = []
+    files: List[PackageFile] = []
 
 
 class CVE(BaseModel):
