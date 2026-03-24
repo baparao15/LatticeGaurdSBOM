@@ -200,12 +200,6 @@ function PackageCard({
                 </span>
               )}
             </div>
-            {/* Risk gauge */}
-            {riskScore && (
-              <div className="mt-2">
-                <RiskGauge score={riskScore.total_score} level={riskScore.risk_level} />
-              </div>
-            )}
           </div>
           <div className="flex items-center gap-1.5 flex-shrink-0">
             <button
@@ -277,27 +271,6 @@ function PackageCard({
                 <p className="text-xs text-gray-500">{pkg.component.description}</p>
               )}
 
-              {/* Risk breakdown */}
-              {riskScore && (
-                <div>
-                  <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">Risk Breakdown</p>
-                  <div className="grid grid-cols-5 gap-1.5">
-                    {Object.entries(riskScore.breakdown).map(([k, v]) => (
-                      <div key={k} className="text-center">
-                        <p className="text-sm font-bold" style={{ color: riskColor(v) }}>{v}</p>
-                        <p className="text-[9px] text-gray-600 capitalize">
-                          {k.replace("_score","").replace("_"," ")}
-                        </p>
-                      </div>
-                    ))}
-                  </div>
-                  {riskScore.monthly_downloads !== null && riskScore.monthly_downloads !== undefined && (
-                    <p className="text-[10px] text-gray-600 mt-1.5 font-mono">
-                      📦 {riskScore.monthly_downloads.toLocaleString()} downloads/mo
-                    </p>
-                  )}
-                </div>
-              )}
 
               {/* CVEs */}
               {pkg.cves.length > 0 && (
@@ -954,40 +927,6 @@ export default function MainTool() {
         {/* ══ STEP 2 — REVIEW RISK ══ */}
         {step === 2 && (
           <div className="space-y-5">
-            {/* Aggregate risk banner */}
-            {riskBatch && (
-              <div className="glass-card rounded-xl p-4 flex flex-wrap gap-6 justify-between items-center">
-                <div>
-                  <p className="text-xs text-gray-500 mb-1">Aggregate Risk Score</p>
-                  <div className="flex items-center gap-3">
-                    <p className="text-3xl font-bold" style={{ color: riskColor(riskBatch.aggregate_score) }}>
-                      {riskBatch.aggregate_score}<span className="text-sm text-gray-500">/100</span>
-                    </p>
-                    <div className="text-xs space-y-1">
-                      <p className="text-[#ff3366]">{riskBatch.high_risk_count} HIGH</p>
-                      <p className="text-[#ff9900]">{riskBatch.medium_risk_count} MEDIUM</p>
-                      <p className="text-[#00ff88]">{riskBatch.low_risk_count} LOW</p>
-                    </div>
-                  </div>
-                </div>
-                <div className="flex gap-4 text-center text-xs">
-                  <div>
-                    <p className="text-xl font-bold text-white">{packages.length}</p>
-                    <p className="text-gray-500">Packages</p>
-                  </div>
-                  <div>
-                    <p className="text-xl font-bold text-[#ff3366]">{totalCVEs}</p>
-                    <p className="text-gray-500">CVEs</p>
-                  </div>
-                  {staticBatch && (
-                    <div>
-                      <p className="text-xl font-bold text-[#a78bfa]">{staticBatch.total_findings}</p>
-                      <p className="text-gray-500">Scan findings</p>
-                    </div>
-                  )}
-                </div>
-              </div>
-            )}
 
             {/* License compliance summary */}
             {licenseReport && (licenseReport.has_copyleft || licenseReport.has_agpl || licenseReport.has_ambiguous) && (
@@ -1019,19 +958,17 @@ export default function MainTool() {
                 </div>
               </div>
               <div className="p-4 space-y-3">
-                {[...packages]
-                  .sort((a, b) => (getRisk(b.component.name)?.total_score ?? 0) - (getRisk(a.component.name)?.total_score ?? 0))
-                  .map((pkg, i) => (
-                    <PackageCard
-                      key={`${pkg.component.name}-${i}`}
-                      pkg={pkg}
-                      nameResult={nameCheckResults[pkg.component.name]}
-                      riskScore={getRisk(pkg.component.name)}
-                      scanResult={getScan(pkg.component.name) ?? undefined}
-                      licenseInfo={getLicense(pkg.component.name) ?? undefined}
-                      onRemove={() => setPackages(prev => prev.filter((_, idx) => idx !== i))}
-                    />
-                  ))}
+                {packages.map((pkg, i) => (
+                  <PackageCard
+                    key={`${pkg.component.name}-${i}`}
+                    pkg={pkg}
+                    nameResult={nameCheckResults[pkg.component.name]}
+                    riskScore={getRisk(pkg.component.name)}
+                    scanResult={getScan(pkg.component.name) ?? undefined}
+                    licenseInfo={getLicense(pkg.component.name) ?? undefined}
+                    onRemove={() => setPackages(prev => prev.filter((_, idx) => idx !== i))}
+                  />
+                ))}
               </div>
             </div>
 
