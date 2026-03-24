@@ -1,5 +1,6 @@
 import { api } from "./client";
 
+// ── Core types ─────────────────────────────────────────────────────────────────
 export interface CVE {
   id: string;
   severity: string;
@@ -13,6 +14,7 @@ export interface PackageFile {
   file_type: "wheel" | "sdist" | "egg" | "installer" | "other";
   size_bytes: number;
   sha256: string;
+  url?: string;
   python_version?: string;
   requires_python?: string;
   python_tag?: string;
@@ -39,6 +41,8 @@ export interface Component {
   file_count: number;
   file_types: string[];
   files: PackageFile[];
+  first_release_date?: string;
+  release_count?: number;
 }
 
 export interface ResolvedPackage {
@@ -71,6 +75,148 @@ export interface ManualResult {
   available_versions?: string[];
 }
 
+// ── Phase 1: Name Check ────────────────────────────────────────────────────────
+export interface NameCheckResult {
+  package_name: string;
+  normalized_name: string;
+  verdict: "VERIFIED" | "LIKELY_TYPOSQUAT" | "SUSPICIOUS" | "UNKNOWN";
+  confidence: number;
+  nearest_match: string | null;
+  edit_distance: number | null;
+  list_size: number;
+  list_integrity_ok: boolean;
+  ml_dsa_signature: string;
+  ed25519_signature: string;
+  public_key_ml_dsa: string;
+  public_key_ed25519: string;
+  checked_at: number;
+  algorithm: string;
+  fips_standard: string;
+}
+
+export interface NameCheckBatchResult {
+  results: NameCheckResult[];
+  total: number;
+}
+
+// ── Phase 2: Risk Score ────────────────────────────────────────────────────────
+export interface RiskBreakdown {
+  cve_score: number;
+  age_score: number;
+  maintainer_score: number;
+  download_score: number;
+  name_score: number;
+}
+
+export interface RiskScore {
+  package_name: string;
+  version: string;
+  total_score: number;
+  risk_level: "LOW" | "MEDIUM" | "HIGH";
+  breakdown: RiskBreakdown;
+  monthly_downloads: number | null;
+  release_count: number;
+  signals: Record<string, unknown>;
+  ml_dsa_signature: string;
+  ed25519_signature: string;
+  public_key_ml_dsa: string;
+  public_key_ed25519: string;
+  computed_at: number;
+  algorithm: string;
+  fips_standard: string;
+}
+
+export interface RiskBatchResult {
+  scores: RiskScore[];
+  total_packages: number;
+  aggregate_score: number;
+  worst_package: RiskScore | null;
+  high_risk_count: number;
+  medium_risk_count: number;
+  low_risk_count: number;
+}
+
+// ── Phase 3: Static Scan ───────────────────────────────────────────────────────
+export interface StaticFinding {
+  pattern: string;
+  file: string;
+  line_number: number;
+  severity: "LOW" | "MEDIUM" | "HIGH" | "CRITICAL";
+  description: string;
+  line_content: string;
+}
+
+export interface StaticScanResult {
+  package_name: string;
+  version: string;
+  sdist_url: string;
+  findings: StaticFinding[];
+  finding_count: number;
+  scanned_files: string[];
+  error: string | null;
+  scanned_at: number;
+  ml_dsa_signature: string;
+  ed25519_signature: string;
+  public_key_ml_dsa: string;
+  public_key_ed25519: string;
+  algorithm: string;
+  fips_standard: string;
+}
+
+export interface StaticBatchResult {
+  results: StaticScanResult[];
+  total_scanned: number;
+  total_findings: number;
+  critical_count: number;
+  high_count: number;
+}
+
+// ── Phase 6: License ───────────────────────────────────────────────────────────
+export interface LicenseFinding {
+  package_name: string;
+  version: string;
+  license_raw: string;
+  spdx_id: string;
+  issues: string[];
+  is_copyleft: boolean;
+  is_agpl: boolean;
+  is_ambiguous: boolean;
+}
+
+export interface LicenseReport {
+  packages: LicenseFinding[];
+  total_packages: number;
+  has_copyleft: boolean;
+  has_agpl: boolean;
+  has_ambiguous: boolean;
+  compatibility_issues: string[];
+  ml_dsa_signature: string;
+  ed25519_signature: string;
+  public_key_ml_dsa: string;
+  public_key_ed25519: string;
+  generated_at: number;
+  algorithm: string;
+  fips_standard: string;
+}
+
+// ── Phase 4: Audit Log ─────────────────────────────────────────────────────────
+export interface AuditEvent {
+  id: string;
+  event_type: string;
+  description: string;
+  details: Record<string, unknown>;
+  timestamp: number;
+  ml_dsa_signature: string;
+  ed25519_signature: string;
+  public_key_ml_dsa: string;
+  public_key_ed25519: string;
+  signature_size_bytes: number;
+  algorithm: string;
+  fips_standard: string;
+  security_level: string;
+}
+
+// ── API functions ──────────────────────────────────────────────────────────────
 export function resolveDependencies(
   rawText: string,
   ecosystem: string,
@@ -90,7 +236,50 @@ export function manualLookup(
 }
 
 export function checkHealth() {
-  return api.get<{ status: string; real_oqs: boolean; algorithm: string }>(
+  return api.get<{ status: string; real_oqs: boolean; algorithm: string; name_list_size: number }>(
     "/health"
   );
+}
+
+// Phase 1
+export function checkNamesBatch(names: string[]): Promise<NameCheckBatchResult> {
+  return api.post("/namecheck/batch", { names });
+}
+
+// Phase 2
+export function scoreRiskBatch(packages: Array<{
+  package_name: string;
+  version: string;
+  ecosystem: string;
+  cves: CVE[];
+  upload_date: string;
+  first_release_date?: string;
+  release_count: number;
+  maintainer?: string;
+  name_verdict: string;
+}>): Promise<RiskBatchResult> {
+  return api.post("/risk/score-batch", { packages });
+}
+
+// Phase 3
+export function scanSdistBatch(packages: Array<{
+  package_name: string;
+  version: string;
+  sdist_url: string;
+}>): Promise<StaticBatchResult> {
+  return api.post("/scan/sdist-batch", { packages });
+}
+
+// Phase 6
+export function analyzeLicenses(packages: Array<{
+  name: string;
+  version: string;
+  license: string;
+}>): Promise<LicenseReport> {
+  return api.post("/license/analyze", { packages });
+}
+
+// Phase 4
+export function getAuditEvents(): Promise<{ events: AuditEvent[]; total: number }> {
+  return api.get("/audit/events");
 }

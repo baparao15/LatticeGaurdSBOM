@@ -1,0 +1,37 @@
+Scenario 1 — A developer onboards to a new codebase
+They clone the repo, see requirements.txt with 40 packages, and run pip install -r requirements.txt. They have no idea if any of those 40 packages have CVEs, if one of them was typosquatted by a previous developer who made a typo, or if a maintainer account was compromised 6 months ago. LatticeGuard solves this — paste the file, get a full risk report before a single package is installed.
+
+Scenario 2 — Security audit for a software vendor
+A company ships software to a hospital or bank. The customer's security team asks: "Prove to us that your dependencies are clean and haven't been tampered with." Today there is no standard answer. With LatticeGuard, the vendor generates a signed SBOM, hands over the ZIP, the customer runs verify.py and gets a cryptographic audit report. The ML-DSA signatures mean that report is valid even decades from now.
+
+Scenario 3 — Open source project wanting to prevent supply chain attacks
+The Log4Shell and XZ Utils attacks happened because no one was watching the dependency tree. A project that runs LatticeGuard in CI — checking every PR's dependency changes — gets an alert the moment a dependency introduces a new CVE, or when a new transitive dependency appears that wasn't there before.
+
+Scenario 4 — Defense / finance / healthcare compliance
+These sectors are actively preparing for post-quantum cryptography transitions. NIST finalized FIPS-204 (ML-DSA) in 2024 and agencies are required to migrate. A tool that already produces FIPS-204 compliant signed SBOMs is ahead of the curve — these organizations need to demonstrate quantum-safe signing of their software supply chain manifests.
+
+Can it be used as an auto-install layer?
+Yes — and this is the most powerful real-world use case.
+
+Here is how it would work as a layer:
+
+As a pip wrapper / pre-install hook:
+You build a thin CLI called lginstall that wraps pip. When a developer runs lginstall numpy==1.26.0 instead of pip install numpy==1.26.0, the following happens automatically:
+
+Name check runs against the ML-DSA-signed top-8K list — if it's a typosquat, install is blocked
+CVE check runs — if there's a CRITICAL CVE, install is blocked (or warned, configurable)
+Risk score computed — if above threshold (e.g. 70), install requires explicit confirmation
+Package SHA256 fetched from PyPI — this is the expected hash
+pip downloads the package — pip itself verifies the hash against PyPI's record
+LatticeGuard verifies the downloaded file hash matches what was fetched in step 4 — tamper detection
+A signed installation attestation is appended to a local install-log.json — a running audit trail of every package ever installed on this machine, quantum-safe signed
+If all checks pass, the install proceeds. If anything fails, it is blocked before the package touches your environment.
+
+As a GitHub Action (zero config for most projects):
+Add one file to .github/workflows/latticeguard.yml. Every PR that touches requirements.txt or package.json triggers the full LatticeGuard scan. If risk score exceeds threshold or a typosquat is detected, the PR is blocked from merging. The signed SBOM is attached as a PR artifact automatically.
+
+As a Docker build layer:
+In a Dockerfile, replace RUN pip install -r requirements.txt with RUN lginstall -r requirements.txt. Every Docker build produces a signed SBOM as a build artifact. The image cannot be built if any dependency fails the name check or has a CRITICAL CVE.
+
+The honest assessment of where it is vs where it could be
+Right now LatticeGuard is an analysis and signing tool — you paste packages, review, sign, export. It does not yet auto-block or auto-install. The gap between "analysis tool" and "enforcement layer" is the CLI wrapper and the CI/CD integration. That gap is buildable in a few days of work and would make it genuinely production-usable rather than a demo. The cryptographic foundation — ML-DSA-65 signing, CycloneDX SBOM, CVE checking — is already solid and correct. The enforcement layer on top of it is the last step to make it a real security product.

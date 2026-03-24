@@ -59,12 +59,32 @@ async def sign_all_components(data: dict):
         signed_components.append(signed.model_dump())
         await asyncio.sleep(0.05)
 
+    serial = f"urn:uuid:{uuid.uuid4()}"
+    generated_at = str(time.time())
+
+    # Record SBOM signing in audit log
+    from store.audit_store import audit_store
+    audit_store.add_event(
+        "SBOM_SIGNED",
+        f"SBOM signed with ML-DSA-65 + Ed25519 — {len(signed_components)} component(s), "
+        f"serial {serial}",
+        {
+            "serial_number": serial,
+            "component_count": len(signed_components),
+            "algorithm": "Hybrid(Ed25519 + ML-DSA-65)",
+            "fips_standard": "FIPS-204",
+            "security_level": "NIST-Level-3",
+            "ml_dsa_sig_size": 3293,
+            "ed25519_sig_size": 64,
+        },
+    )
+
     return {
         "bom_format": "CycloneDX",
         "spec_version": "1.5",
-        "serial_number": f"urn:uuid:{uuid.uuid4()}",
-        "generated_at": str(time.time()),
-        "tool": "LatticeGuard-v1.0",
+        "serial_number": serial,
+        "generated_at": generated_at,
+        "tool": "LatticeGuard-v2.0",
         "components": signed_components,
         "total_components": len(signed_components),
         "quantum_safe": True,

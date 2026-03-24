@@ -111,8 +111,8 @@
     @apply shadow-[0_0_20px_rgba(0,255,136,0.4)];
   }
 
-  .text-gradient {
-    @apply bg-clip-text text-transparent bg-gradient-to-r from-primary via-secondary to-primary bg-[length:200%_auto];
+  .text-gradient, .gradient-text {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-[#00d4ff] via-[#7c3aed] to-[#00d4ff] bg-[length:200%_auto];
     animation: gradient 6s ease infinite;
   }
 
@@ -123,8 +123,16 @@
       linear-gradient(to bottom, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
     mask-image: linear-gradient(to bottom, rgba(0,0,0,1) 0%, rgba(0,0,0,0) 100%);
   }
+
+  .lattice-bg {
+    background-size: 60px 60px;
+    background-image:
+      linear-gradient(to right, rgba(0,212,255,0.06) 1px, transparent 1px),
+      linear-gradient(to bottom, rgba(0,212,255,0.06) 1px, transparent 1px);
+  }
 }
 
+/* ── Animations ──────────────────────────────────────────────────────────────── */
 @keyframes marquee {
   0% { transform: translateX(0%); }
   100% { transform: translateX(-50%); }
@@ -142,26 +150,68 @@
   100% { border-color: rgba(0, 212, 255, 0.2); }
 }
 
-.animate-marquee {
-  animation: marquee 25s linear infinite;
+@keyframes lattice-drift {
+  0% { background-position: 0px 0px; }
+  100% { background-position: 60px 60px; }
 }
 
-.animate-gradient {
-  animation: gradient 6s ease infinite;
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
 }
 
-.animate-pulse-border {
-  animation: pulse-border 2s ease-in-out infinite;
+@keyframes scan-line {
+  0% { top: 0%; opacity: 0.8; }
+  100% { top: 100%; opacity: 0; }
 }
 
-/* Custom Scrollbar */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+@keyframes typewriter {
+  0% { width: 0; }
+  100% { width: 100%; }
 }
-::-webkit-scrollbar-track {
-  @apply bg-background;
+
+@keyframes blink {
+  0%, 50% { opacity: 1; }
+  51%, 100% { opacity: 0; }
 }
-::-webkit-scrollbar-thumb {
-  @apply bg-muted-foreground/30 rounded-full hover:bg-muted-foreground/50 transition-colors;
+
+@keyframes pulse-node {
+  0%, 100% { opacity: 0.3; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.5); }
 }
+
+@keyframes slide-in-right {
+  from { transform: translateX(30px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes fade-up {
+  from { transform: translateY(20px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes quantum-pulse {
+  0%, 100% { box-shadow: 0 0 8px rgba(0,212,255,0.3); }
+  50% { box-shadow: 0 0 24px rgba(0,212,255,0.8), 0 0 48px rgba(124,58,237,0.4); }
+}
+
+.animate-marquee { animation: marquee 25s linear infinite; }
+.animate-gradient { animation: gradient 6s ease infinite; }
+.animate-pulse-border { animation: pulse-border 2s ease-in-out infinite; }
+.animate-lattice { animation: lattice-drift 12s linear infinite; }
+.animate-float { animation: float 4s ease-in-out infinite; }
+.animate-scan { animation: scan-line 2.5s linear infinite; }
+.animate-slide-in { animation: slide-in-right 0.4s ease-out forwards; }
+.animate-fade-up { animation: fade-up 0.5s ease-out forwards; }
+.animate-spin-slow { animation: spin-slow 20s linear infinite; }
+.animate-quantum-pulse { animation: quantum-pulse 2s ease-in-out infinite; }
+
+/* ── Custom Scrollbar ─────────────────────────────────────────────────────────── */
+::-webkit-scrollbar { width: 8px; height: 8px; }
+::-webkit-scrollbar-track { @apply bg-background; }
+::-webkit-scrollbar-thumb { @apply bg-muted-foreground/30 rounded-full hover:bg-muted-foreground/50 transition-colors; }

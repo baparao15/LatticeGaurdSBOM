@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 
 
 class PackageQuery(BaseModel):
@@ -23,6 +23,7 @@ class PackageFile(BaseModel):
     file_type: str
     size_bytes: int
     sha256: str
+    url: Optional[str] = None
     python_version: Optional[str] = None
     requires_python: Optional[str] = None
     python_tag: Optional[str] = None
@@ -49,6 +50,10 @@ class Component(BaseModel):
     file_count: int = 0
     file_types: List[str] = []
     files: List[PackageFile] = []
+    # Extended fields for risk scoring
+    first_release_date: Optional[str] = None
+    release_count: int = 0
+    maintainer_count: int = 1
 
 
 class CVE(BaseModel):
@@ -79,7 +84,7 @@ class SBOM(BaseModel):
     spec_version: str = "1.5"
     serial_number: str
     generated_at: str
-    tool: str = "LatticeGuard-v1.0"
+    tool: str = "LatticeGuard-v2.0"
     components: List[SignedComponent]
     total_components: int
     total_vulnerabilities: int

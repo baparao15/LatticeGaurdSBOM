@@ -1,0 +1,263 @@
+Phase 1 — Pre-Fetch Safety Gate (The Most Critical Part)
+This is the answer to "how do I ensure I'm not installing fake packages."
+
+1A. Trusted Package Name List
+
+On backend startup, fetch the top 8,000 PyPI packages from https://hugovk.github.io/top-pypi-packages/top-pypi-packages-30-days.min.json
+Sign the entire list with ML-DSA-65 + Ed25519 immediately after fetching
+Cache with 24-hour TTL, re-fetch and re-sign on expiry
+Before every name check, verify the ML-DSA signature on the cached list — if tampered, block the check entirely
+1B. Name Verification Engine (runs before any PyPI call)
+
+Exact match → VERIFIED (green, proceed)
+Levenshtein distance 1 to any top-8K package → LIKELY TYPOSQUAT (red, block with modal)
+Levenshtein distance 2 → SUSPICIOUS (yellow, warn with modal)
+Homoglyph normalization first: 0→o, 1→l, rn→m, vv→w, then run distance check
+Padding patterns: python-X, X-lib, py-X, get-X where X is a known package → SUSPICIOUS
+Not in top-8K but no near-matches → UNKNOWN (grey, proceed with warning)
+1C. PQC-Signed Name Attestation
+
+Every verdict (including VERIFIED) is serialized to canonical JSON and signed with ML-DSA-65 + Ed25519
+Output: SignedNameAttestation with the verdict, confidence score, nearest match, edit distance, and both signatures
+This happens before fetch_package() is called — it is a hard gate
+1D. User Flow for Blocked Names
+
+VERIFIED: package card loads immediately with a green shield badge
+SUSPICIOUS/TYPOSQUAT: modal appears — "This looks like a typosquat of [X]. Do you want to proceed anyway? This decision will be recorded in your signed attestation." User clicks confirm or cancel.
+UNKNOWN: soft warning on the card, user can proceed
+If cancelled: package is not added, no fetch happens
+Phase 2 — Package Risk Scoring (Runs After Fetch)
+Once the name is verified and metadata is fetched, compute a 0–100 risk score per package from these signals:
+
+Signal 1 — CVE severity (0–40 points of risk)
+
+CRITICAL CVE: +40, HIGH: +25, MEDIUM: +10, LOW: +5
+Signal 2 — Package age and activity (0–20 points)
+
+First release less than 6 months ago: +15
+No release in over 3 years: +10
+Only 1 release ever: +10
+Signal 3 — Maintainer count (0–15 points)
+
+Single maintainer: +15 (single point of failure / account takeover risk)
+2–3 maintainers: +5
+Signal 4 — Download volume (0–15 points)
+
+Under 1,000 downloads/month: +15
+Under 10,000: +8
+Signal 5 — Name check result (0–10 points)
+
+UNKNOWN: +5
+SUSPICIOUS (user confirmed): +10
+Display: Each package card shows a color-coded risk score — green (0–25), yellow (26–60), red (61–100). The full project gets an aggregate risk score. Sort packages by risk score by default.
+
+Phase 3 — Static Source Scan (Runs on sdist)
+For packages where a source distribution exists:
+
+Download the sdist tar.gz from PyPI (do not execute it)
+Extract and scan setup.py, setup.cfg, pyproject.toml, and all __init__.py files for:
+exec(base64.b64decode( — obfuscated execution
+subprocess.call, os.system, os.popen in setup files — runs on install
+urllib, requests, socket in setup files — network calls on install
+Patterns like AWS_, SSH_, .ssh/id_rsa, GITHUB_TOKEN — credential harvesting
+import ctypes, import cffi in setup files — native code injection
+Return a list of StaticFinding objects: {pattern, file, line_number, severity, description}
+Sign the scan result with ML-DSA-65 + Ed25519
+Show findings on the package card in a collapsible "Static Analysis" section
+Phase 4 — PQC Signature Timeline / Audit Log
+A dedicated panel showing every cryptographic event in chronological order:
+
+Name list fetched and signed at T0
+Name check for numpy run at T1 — verdict VERIFIED — ML-DSA signed
+Package metadata fetched at T2 — hash bound — ML-DSA signed
+Static scan completed at T3 — 0 findings — ML-DSA signed
+SBOM signed at T4 — ML-DSA-65 + Ed25519 hybrid
+Each event shows the ML-DSA signature size (3,293 bytes), the FIPS-204 security level (NIST Level 3), and a truncated signature preview. This makes the quantum-safe claim tangible and auditable rather than a marketing claim.
+
+Phase 5 — Quantum Threat Simulator Tab
+A tab called "Quantum Threat" showing:
+
+A side-by-side comparison: classical ECDSA vs ML-DSA-65
+Grover's algorithm impact on SHA256: halves security from 256-bit to 128-bit — still safe
+Shor's algorithm impact on ECDSA/RSA: breaks it entirely — why classical signatures fail
+A live demo: take the ECDSA public key from the current session and show that a quantum attacker with enough qubits could recover the private key. Then show that ML-DSA-65 is based on Module Learning With Errors — no known quantum algorithm breaks it
+Show the lattice visualization: a 2D grid where the shortest vector problem is illustrated — the mathematical foundation of CRYSTALS-Dilithium
+Phase 6 — License Compliance Engine
+For each package in the resolved list:
+
+Map the license string to an SPDX identifier
+Flag incompatibilities:
+GPL-3.0 in a project with MIT components: copyleft contamination warning
+AGPL-3.0 in any project: requires open-sourcing even SaaS backends
+Multiple licenses on one package: ambiguity warning
+Show a license compatibility matrix across all packages
+Sign the compliance report with ML-DSA-65
+Phase 7 — SBOM Export (Enhanced)
+The ZIP bundle expands from 4 to 6 files:
+
+latticeguard-sbom.json — CycloneDX 1.5 compliant SBOM with full component data
+name-attestations.json — signed name verification results for every package
+static-scan-results.json — signed static analysis findings
+risk-scores.json — signed risk score breakdown per package
+public-keys.pem — ML-DSA-65 and Ed25519 public keys
+verify.py — verifies all signatures across all four JSON files
+verify.py must verify: SBOM signatures, name attestation signatures, static scan signatures, risk score signatures — and print a full audit report.
+
+Phase 8 — CI/CD Integration Panel
+A panel with copy-paste ready configs:
+
+GitHub Actions:
+
+- name: LatticeGuard Scan
+  run: |
+    curl -X POST https://your-api/packages/resolve \
+      -d @requirements.txt | \
+      python verify.py --fail-on-risk 60
+Pre-commit hook config
+GitLab CI template
+Jenkins Groovy snippet
+
+No CLI needs to be built — these call the existing API. The panel just surfaces them.
+
+What the Full User Flow Looks Like in v2
+User pastes requirements.txt
+For each package name — before any fetch — name check runs against ML-DSA-signed top-8K list
+Typosquats are blocked with a modal. Unknowns are warned. Verified names proceed.
+Package metadata fetched from PyPI. Risk score computed from CVEs, age, downloads, maintainers.
+sdist downloaded and static-scanned for malicious patterns in setup files.
+Package cards show: name verification badge, risk score (0–100), CVE count, static scan findings, distribution files with platform filter.
+User clicks Sign — all components signed with ML-DSA-65 + Ed25519.
+Audit log shows the full cryptographic timeline.
+Export ZIP with 6 files — name attestations, static scan, risk scores, SBOM, keys, verify script.
+verify.py run locally confirms every signature in the chain is quantum-safe.
+Priority Order for Implementation
+Phase 1 (pre-fetch name gate) — this directly solves the fake package problem
+Phase 2 (risk scoring) — makes every card meaningful
+Phase 3 (static scan) — catches malicious install hooks
+Phase 6 (enhanced export) — ties everything together
+Phase 4 (audit log) — makes PQC visible
+Phase 5 (quantum threat simulator) — strongest hackathon talking point
+Phase 7 (license compliance) — good for completeness
+Phase 8 (CI/CD panel) — shows production applicability
+
+
+
+
+LatticeGuard v2 — UI/UX Redesign Prompt
+Core Problem with Current UI
+The current interface has three issues: it looks like a developer tool that requires reading to understand, the "How It Works" section reads like documentation rather than selling the value, and the three-step flow (Add → Review → Sign) is not visually guided enough — users don't know what they're doing or why.
+
+The redesign goal: a security professional should open this, understand the value in 5 seconds, and complete the full flow in under 2 minutes without reading any instructions.
+
+Landing / Hero Section Redesign
+Current problem: Generic headline, no immediate credibility signal.
+
+New design:
+
+Full-width dark hero with a subtle animated lattice grid in the background (CSS grid lines, slowly shifting — represents the mathematical lattice in ML-DSA)
+Headline: "The Last Line of Defense Before Your Dependencies Become Your Vulnerability"
+Subheadline: "LatticeGuard verifies every package you install, signs the result with quantum-safe cryptography, and produces an auditable SBOM — before a single line of malicious code touches your system."
+Three trust signals in a row below the headline, icon + number:
+🔐 ML-DSA-65 — NIST FIPS-204 Certified
+⚡ Pre-fetch verification — Name checked before download
+📋 CycloneDX 1.5 — Industry standard SBOM
+Single CTA button: "Start Scanning" — scrolls to the tool, no navigation required
+How It Works — Full Redesign
+Current problem: Three generic cards with vague descriptions. Reads like marketing copy that doesn't explain anything.
+
+New design — 5-stage vertical timeline with animated connector lines:
+
+Stage 1 — Name Verification (BEFORE download)
+Icon: Shield with magnifying glass
+Title: "We check the name before anything is fetched"
+Body: "You type numpy. Before we touch PyPI, we run your package name against a ML-DSA-65 signed list of the 8,000 most downloaded packages. Edit distance, homoglyph normalization, padding detection. If it's 1 character away from a known package, you get a warning and a choice. Typosquatted packages never reach your system."
+Technical callout: Levenshtein distance · Homoglyph normalization · ML-DSA-65 signed verdict
+
+Stage 2 — Live Metadata & CVE Check
+Icon: Database with pulse
+Title: "Real data from PyPI and OSV — not a cached snapshot"
+Body: "We fetch live metadata: every distribution file, SHA256 hash, maintainer info, upload date, Python version tags. Simultaneously we query the Open Source Vulnerabilities database for known CVEs. You see exactly what exists on PyPI for this package, not what we cached last week."
+Technical callout: PyPI JSON API · OSV.dev · Real-time CVE lookup
+
+Stage 3 — Risk Scoring
+Icon: Gauge
+Title: "A 0–100 risk score from 5 independent signals"
+Body: "CVE severity, package age, maintainer count, download volume, and name verification result are aggregated into a single risk score. A brand-new package with one maintainer, no CVEs, and a name 2 edits from requests still scores high-risk. Each signal is weighted and explained."
+Technical callout: Multi-signal · Explainable · Sortable by risk
+
+Stage 4 — Quantum-Safe Signing
+Icon: Padlock with lattice pattern
+Title: "Signed with ML-DSA-65 + Ed25519 — survives the quantum era"
+Body: "Every verification verdict, every CVE result, every risk score is signed using a hybrid scheme: Ed25519 for today's security, ML-DSA-65 (CRYSTALS-Dilithium, NIST FIPS-204 Level 3) for post-quantum security. A quantum computer running Shor's algorithm cannot forge these signatures. Your SBOM is unforgeable — now and in 30 years."
+Technical callout: FIPS-204 · NIST Level 3 · 3,293-byte ML-DSA signature
+
+Stage 5 — Auditable Export
+Icon: Download with checkmark
+Title: "A ZIP bundle your auditors, CI pipeline, and lawyers can all use"
+Body: "Six files: the CycloneDX 1.5 SBOM, name verification attestations, static scan results, risk score breakdowns, public keys, and a standalone verify.py. Run python verify.py anywhere — no LatticeGuard needed — and get a full cryptographic audit report."
+Technical callout: CycloneDX 1.5 · Offline verifiable · CI/CD ready
+
+Main Tool Section Redesign
+Current problem: Three tabs (Add → Review → Sign) feel like a wizard with no context. Users don't know what they're doing.
+
+New design — Single scrolling panel with clear stage indicators:
+
+Top of tool panel:
+
+A horizontal progress bar showing the 3 stages: Verify Names → Review Risk → Sign & Export
+Current stage is highlighted in electric blue
+Each stage label has a one-line description underneath: "We check before we fetch" / "Review what we found" / "Generate your quantum-safe SBOM"
+Stage 1 panel — Input:
+
+Title: "Enter your dependencies"
+Subtitle: "Paste your requirements.txt or package.json below. We verify every name before fetching."
+Two tabs: PyPI / npm — styled as pill toggles, not traditional tabs
+The textarea has a subtle animated border that pulses while resolving
+Below textarea: a checklist showing what will happen — ✓ Name verification against signed top-8K list / ✓ CVE lookup via OSV.dev / ✓ Risk scoring across 5 signals / ✓ ML-DSA-65 pre-sign attestations
+Button: "Verify & Analyze" — not "Resolve" (tells the user what it does)
+Stage 2 panel — Package Cards:
+
+Overall risk banner at the top: "3 packages analyzed · 1 HIGH risk · 2 LOW risk · Overall project risk: 42/100"
+Package cards sorted by risk score descending (highest risk first)
+Each card header: package name, version, ecosystem badge, risk score gauge (circular, color coded), CVE count, name verification badge
+Name verification badge: large, prominent — ✓ VERIFIED, ⚠ SUSPICIOUS, ✗ TYPOSQUAT
+Risk score is the most prominent element — large number, color fills from green to red
+Files section collapsed by default with the new platform filter (already implemented)
+CVEs in an expandable section — not shown by default
+Static scan findings in a separate expandable section with severity icons
+Stage 3 panel — Sign:
+
+Title: "Generate your quantum-safe SBOM"
+Subtitle: "Your ML-DSA-65 + Ed25519 keypair is generated fresh for this session. The private key never leaves this page."
+A visual key generation animation — shows the lattice basis being generated (just CSS animation representing the math)
+Two columns: left shows what will be signed (list of all packages with checkboxes, all checked by default), right shows the signature details (algorithm, security level, key sizes)
+Below: "Sign & Export" button — generates the ZIP
+After signing: an audit timeline appears showing every signing event with timestamps and truncated signatures
+Navigation Redesign
+Current: How It Works · Generate SBOM · Verify · PQC Specs
+
+New:
+
+Scan (the main tool — rename from "Generate SBOM")
+How It Works (the redesigned timeline)
+Verify (SBOM verification)
+Threat Model (the quantum threat simulator — new tab)
+In the nav right: a subtle badge FIPS-204 · NIST Level 3 in electric blue
+Tone and Copy Rules Throughout
+Remove: "Generate SBOM", "Add packages", "Step 1/2/3", any sentence starting with "This tool"
+
+Replace with:
+
+Action-first language: "Scan", "Verify", "Analyze", "Sign"
+Consequence language: "before a malicious package reaches your system"
+Credibility anchors: always mention FIPS-204, NIST Level 3, CycloneDX 1.5 near signing actions
+Never say "simple" or "easy" — security tools are trusted because they're rigorous, not because they're easy
+Visual Design Adjustments
+Increase the size of risk scores and name verification badges — these are the most important outputs, they should be the biggest elements on each card
+Add a subtle red glow to HIGH risk cards, green glow to LOW risk cards
+The "DISTRIBUTION FILES" section should be collapsed and secondary — it's implementation detail, not the headline finding
+Add a thin animated gradient line (electric blue to quantum purple) as a section divider between the How It Works stages
+The signing animation should feel significant — this is the moment quantum-safe cryptography is applied. A brief 1-second animation of the signature being computed (lattice points connecting) before the download button appears
+This redesign makes LatticeGuard feel like a production security tool, not a hackathon prototype.
+
+

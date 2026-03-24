@@ -131,6 +131,7 @@ async def fetch_package(name: str, version: str = None) -> Component:
                 file_type=ftype,
                 size_bytes=fi["size"],
                 sha256=fi["digests"]["sha256"],
+                url=fi.get("url") or fi.get("download_url") or None,
                 python_version=fi.get("python_version") or None,
                 requires_python=fi.get("requires_python") or None,
                 python_tag=wheel_tags.get("python_tag"),
@@ -172,6 +173,21 @@ async def fetch_package(name: str, version: str = None) -> Component:
                 if dep_name:
                     direct_deps.append(dep_name)
 
+        # Compute first release date and total release count from all releases
+        all_releases = data.get("releases", {})
+        release_count = len([v for v, files in all_releases.items() if files])
+        first_release_date = None
+        try:
+            dates = []
+            for ver_files in all_releases.values():
+                for vf in ver_files:
+                    if vf.get("upload_time"):
+                        dates.append(vf["upload_time"])
+            if dates:
+                first_release_date = min(dates)
+        except Exception:
+            pass
+
         return Component(
             name=info["name"],
             version=info["version"],
@@ -189,6 +205,9 @@ async def fetch_package(name: str, version: str = None) -> Component:
             file_count=len(package_files),
             file_types=file_types_set,
             files=package_files,
+            first_release_date=first_release_date,
+            release_count=release_count,
+            maintainer_count=1,
         )
 
 
