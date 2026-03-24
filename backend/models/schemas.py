@@ -25,6 +25,11 @@ class PackageFile(BaseModel):
     sha256: str
     python_version: Optional[str] = None
     requires_python: Optional[str] = None
+    python_tag: Optional[str] = None
+    abi_tag: Optional[str] = None
+    platform_tag: Optional[str] = None
+    platform_os: Optional[str] = None
+    platform_arch: Optional[str] = None
 
 
 class Component(BaseModel):

@@ -79,15 +79,66 @@ function FileTypeBadge({ type }: { type: string }) {
   );
 }
 
+const OS_LABELS: Record<string, string> = {
+  linux: "🐧 Linux",
+  macos: "🍎 macOS",
+  windows: "🪟 Windows",
+  any: "Any",
+  other: "Other",
+};
+
+const PYTHON_VER_MAP: Record<string, string> = {
+  cp310: "3.10", cp311: "3.11", cp312: "3.12", cp313: "3.13",
+  cp39: "3.9", cp38: "3.8", cp37: "3.7", py3: "3.x", py2: "2.x",
+};
+
+function pyTagLabel(tag: string): string {
+  return PYTHON_VER_MAP[tag] ?? tag;
+}
+
+function wheelMatchesPy(file: PackageFile, pyVer: string): boolean {
+  if (!file.python_tag || pyVer === "all") return true;
+  const tags = file.python_tag.split(".");
+  return tags.some((t) => t === pyVer || t === "py3" || t === "py2");
+}
+
+function wheelMatchesOs(file: PackageFile, os: string): boolean {
+  if (os === "all") return true;
+  return file.platform_os === os || file.platform_os === "any";
+}
+
 function PackageCard({ pkg, onRemove }: { pkg: ResolvedPackage; onRemove?: () => void }) {
   const [showFiles, setShowFiles] = useState(false);
+  const [pyFilter, setPyFilter] = useState("all");
+  const [osFilter, setOsFilter] = useState("all");
+
   const c = pkg.component;
   const hasCVEs = pkg.cves.length > 0;
-  const totalSize = c.files.reduce((s, f) => s + f.size_bytes, 0);
+
+  const wheels = c.files.filter((f) => f.file_type === "wheel");
+  const sdists = c.files.filter((f) => f.file_type === "sdist");
+  const others = c.files.filter((f) => f.file_type !== "wheel" && f.file_type !== "sdist");
+
+  // Available python versions across all wheels
+  const availablePyTags = Array.from(
+    new Set(wheels.flatMap((f) => (f.python_tag ?? "").split(".").filter(Boolean)))
+  ).filter((t) => t.startsWith("cp") || t === "py3").sort();
+
+  // Available OSes across all wheels
+  const availableOses = Array.from(
+    new Set(wheels.map((f) => f.platform_os ?? "any").filter((o) => o !== "any"))
+  ).sort();
+
+  const matchedWheels = wheels.filter(
+    (f) => wheelMatchesPy(f, pyFilter) && wheelMatchesOs(f, osFilter)
+  );
+  const wouldInstall = matchedWheels[0] ?? null;
+  const isFiltered = pyFilter !== "all" || osFilter !== "all";
+  const matchCount = matchedWheels.length + sdists.length;
 
   return (
     <div className="rounded-xl border border-white/10 bg-black/30 overflow-hidden">
-      {/* Header row */}
+      {/* Header */}
       <div className="px-4 py-3 flex items-start gap-3">
         <div className="shrink-0 mt-0.5">
           <div className={`w-2 h-2 rounded-full mt-1.5 ${hasCVEs ? "bg-[#ff3366]" : "bg-[#00ff88]"}`} />
@@ -97,27 +148,21 @@ function PackageCard({ pkg, onRemove }: { pkg: ResolvedPackage; onRemove?: () =>
             <span className="font-mono font-semibold text-white text-sm">{c.name}</span>
             <span className="font-mono text-[#00d4ff] text-sm">@{c.version}</span>
             <span className="text-[10px] uppercase text-gray-600 tracking-wide font-medium">{c.ecosystem}</span>
-            {hasCVEs && (
+            {hasCVEs ? (
               <span className="px-1.5 py-0.5 rounded text-[10px] font-bold text-[#ff3366] bg-[#ff3366]/10 border border-[#ff3366]/30">
                 {pkg.cves.length} CVE{pkg.cves.length !== 1 ? "s" : ""}
               </span>
-            )}
-            {!hasCVEs && (
+            ) : (
               <span className="px-1.5 py-0.5 rounded text-[10px] font-bold text-[#00ff88] bg-[#00ff88]/10 border border-[#00ff88]/30">
                 clean
               </span>
             )}
           </div>
-          {c.description && (
-            <p className="text-gray-500 text-xs mt-0.5 line-clamp-1">{c.description}</p>
-          )}
+          {c.description && <p className="text-gray-500 text-xs mt-0.5 line-clamp-1">{c.description}</p>}
           <div className="flex items-center gap-3 mt-1 text-[11px] text-gray-600 flex-wrap">
             {c.license && c.license !== "Unknown" && <span>{c.license}</span>}
             {c.author && c.author !== "Unknown" && <span>by {c.author}</span>}
-            {totalSize > 0 && <span>{fmt(totalSize)} total</span>}
-            {pkg.transitive_count > 0 && (
-              <span className="text-[#7c3aed]">+{pkg.transitive_count} transitive</span>
-            )}
+            {pkg.transitive_count > 0 && <span className="text-[#7c3aed]">+{pkg.transitive_count} transitive</span>}
           </div>
         </div>
         {onRemove && (
@@ -125,47 +170,180 @@ function PackageCard({ pkg, onRemove }: { pkg: ResolvedPackage; onRemove?: () =>
         )}
       </div>
 
-      {/* Files section */}
+      {/* Distribution files */}
       {c.file_count > 0 && (
         <div className="border-t border-white/5 bg-black/20">
-          <button
-            className="w-full text-left px-4 py-2 flex items-center justify-between hover:bg-white/[0.02] transition-colors"
-            onClick={() => setShowFiles(!showFiles)}
-          >
+          {/* Section header + filter controls */}
+          <div className="px-4 py-2.5 flex items-center justify-between flex-wrap gap-2">
             <div className="flex items-center gap-2">
               <span className="text-[11px] font-semibold text-gray-400">📦 DISTRIBUTION FILES</span>
               <span className="px-1.5 py-0.5 rounded bg-white/5 text-[10px] font-mono text-gray-500">
-                {c.file_count} file{c.file_count !== 1 ? "s" : ""}
+                {isFiltered ? `${matchCount} of ${c.file_count}` : c.file_count} file{c.file_count !== 1 ? "s" : ""}
               </span>
               <div className="flex gap-1">
                 {c.file_types.map((t) => <FileTypeBadge key={t} type={t} />)}
               </div>
             </div>
-            <span className="text-gray-700 text-xs">{showFiles ? "▲" : "▼"}</span>
-          </button>
+            <div className="flex items-center gap-1.5">
+              {availablePyTags.length > 1 && (
+                <select
+                  value={pyFilter}
+                  onChange={(e) => setPyFilter(e.target.value)}
+                  className="text-[10px] font-mono bg-black/50 border border-white/10 rounded px-2 py-1 text-gray-400 focus:outline-none focus:border-[#00d4ff]/40 cursor-pointer"
+                >
+                  <option value="all">All Python</option>
+                  {availablePyTags.map((t) => (
+                    <option key={t} value={t}>Python {pyTagLabel(t)}</option>
+                  ))}
+                </select>
+              )}
+              {availableOses.length > 1 && (
+                <select
+                  value={osFilter}
+                  onChange={(e) => setOsFilter(e.target.value)}
+                  className="text-[10px] font-mono bg-black/50 border border-white/10 rounded px-2 py-1 text-gray-400 focus:outline-none focus:border-[#00d4ff]/40 cursor-pointer"
+                >
+                  <option value="all">All OS</option>
+                  {availableOses.map((os) => (
+                    <option key={os} value={os}>{OS_LABELS[os] ?? os}</option>
+                  ))}
+                </select>
+              )}
+              <button
+                onClick={() => setShowFiles(!showFiles)}
+                className="text-[10px] text-gray-600 hover:text-gray-400 transition-colors px-1"
+              >
+                {showFiles ? "▲" : "▼"}
+              </button>
+            </div>
+          </div>
 
-          {showFiles && (
-            <div className="px-4 pb-3 space-y-2">
-              {c.files.map((f, i) => (
-                <FileRow key={i} file={f} />
-              ))}
+          {/* "Would install" banner — shown when filter is active and there's a match */}
+          {isFiltered && wouldInstall && (
+            <div className="mx-4 mb-2 rounded-lg border border-[#00ff88]/30 bg-[#00ff88]/5 px-3 py-2 flex items-center gap-2">
+              <span className="text-[#00ff88] text-[10px] font-bold shrink-0">✓ pip would install:</span>
+              <span className="font-mono text-[11px] text-[#00ff88] truncate">{wouldInstall.filename}</span>
+              <span className="shrink-0 text-[10px] text-gray-500">· {fmt(wouldInstall.size_bytes)}</span>
+            </div>
+          )}
+          {isFiltered && !wouldInstall && (
+            <div className="mx-4 mb-2 rounded-lg border border-[#ffaa00]/30 bg-[#ffaa00]/5 px-3 py-2">
+              <span className="text-[#ffaa00] text-[10px]">No wheel matches this platform — pip would fall back to the sdist and compile from source.</span>
             </div>
           )}
 
+          {/* Collapsed summary */}
           {!showFiles && (
-            <div className="px-4 pb-2 flex flex-wrap gap-1">
-              {c.files.map((f, i) => (
-                <span key={i} className={`text-[10px] font-mono px-2 py-0.5 rounded border ${FILE_TYPE_STYLE[f.file_type]?.bg ?? "bg-white/5 border-white/10"} ${FILE_TYPE_STYLE[f.file_type]?.text ?? "text-gray-400"}`}>
-                  {f.filename.length > 40 ? f.filename.slice(0, 38) + "…" : f.filename}
+            <div className="px-4 pb-3 space-y-2">
+              {!isFiltered && wheels.length > 0 && (
+                <>
+                  {/* Platform group summary */}
+                  <div className="flex flex-wrap gap-2">
+                    {availableOses.map((os) => {
+                      const count = wheels.filter((f) => f.platform_os === os).length;
+                      return count > 0 ? (
+                        <span key={os} className="text-[10px] font-mono px-2.5 py-1 rounded border bg-white/5 border-white/10 text-gray-400">
+                          {OS_LABELS[os]} <span className="text-[#00d4ff] font-bold">{count}</span>
+                        </span>
+                      ) : null;
+                    })}
+                    {sdists.length > 0 && (
+                      <span className="text-[10px] font-mono px-2.5 py-1 rounded border bg-[#7c3aed]/10 border-[#7c3aed]/30 text-[#a78bfa]">
+                        Source dist <span className="font-bold">{sdists.length}</span>
+                      </span>
+                    )}
+                  </div>
+                  {availablePyTags.length > 1 && (
+                    <p className="text-[10px] text-gray-600">
+                      Python versions: {availablePyTags.map((t) => pyTagLabel(t)).join(", ")} — select Python + OS above to see which file pip would pick
+                    </p>
+                  )}
+                </>
+              )}
+              {/* When filtered: show matching pills */}
+              {isFiltered && matchedWheels.length > 0 && (
+                <div className="flex flex-wrap gap-1">
+                  {matchedWheels.map((f, i) => (
+                    <span
+                      key={i}
+                      className={`text-[10px] font-mono px-2 py-0.5 rounded border flex items-center gap-1 ${
+                        i === 0
+                          ? "bg-[#00ff88]/10 border-[#00ff88]/30 text-[#00ff88]"
+                          : "bg-[#00d4ff]/10 border-[#00d4ff]/30 text-[#00d4ff]"
+                      }`}
+                    >
+                      {i === 0 && <span className="text-[9px]">✓</span>}
+                      {f.filename.length > 38 ? f.filename.slice(0, 36) + "…" : f.filename}
+                      <span className="opacity-60">· {fmt(f.size_bytes)}</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+              {isFiltered && wheels.filter((f) => !matchedWheels.includes(f)).length > 0 && (
+                <p className="text-[10px] text-gray-700 pl-1">
+                  + {wheels.filter((f) => !matchedWheels.includes(f)).length} wheel{wheels.filter((f) => !matchedWheels.includes(f)).length !== 1 ? "s" : ""} for other platforms hidden
+                </p>
+              )}
+              {/* Sdist always shown when filtered */}
+              {isFiltered && sdists.map((f, i) => (
+                <span key={i} className="inline-flex text-[10px] font-mono px-2 py-0.5 rounded border bg-[#7c3aed]/10 border-[#7c3aed]/30 text-[#a78bfa] mr-1">
+                  {f.filename.length > 38 ? f.filename.slice(0, 36) + "…" : f.filename}
                   <span className="opacity-60 ml-1">· {fmt(f.size_bytes)}</span>
                 </span>
               ))}
             </div>
           )}
+
+          {/* Expanded list */}
+          {showFiles && (
+            <div className="px-4 pb-3 space-y-3">
+              {/* Matched wheels */}
+              {matchedWheels.length > 0 && (
+                <div className="space-y-1.5">
+                  {availableOses.length > 1 && (
+                    <p className="text-[10px] text-gray-600 uppercase tracking-wide">
+                      Matching wheels ({matchedWheels.length})
+                    </p>
+                  )}
+                  {matchedWheels.map((f, i) => (
+                    <FileRow key={i} file={f} isWouldInstall={i === 0 && isFiltered} />
+                  ))}
+                </div>
+              )}
+
+              {/* Non-matching wheels (dimmed) */}
+              {isFiltered && (() => {
+                const nonMatching = wheels.filter((f) => !matchedWheels.includes(f));
+                return nonMatching.length > 0 ? (
+                  <details className="group">
+                    <summary className="text-[10px] text-gray-600 cursor-pointer hover:text-gray-400 transition-colors list-none flex items-center gap-1">
+                      <span className="group-open:hidden">▶</span>
+                      <span className="hidden group-open:inline">▼</span>
+                      Show {nonMatching.length} other-platform wheel{nonMatching.length !== 1 ? "s" : ""} (not for your filter)
+                    </summary>
+                    <div className="mt-1.5 space-y-1.5 opacity-40">
+                      {nonMatching.map((f, i) => <FileRow key={i} file={f} />)}
+                    </div>
+                  </details>
+                ) : null;
+              })()}
+
+              {/* Sdist */}
+              {sdists.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-[10px] text-gray-600 uppercase tracking-wide">Source distribution</p>
+                  {sdists.map((f, i) => <FileRow key={i} file={f} />)}
+                </div>
+              )}
+
+              {/* Other files */}
+              {others.map((f, i) => <FileRow key={i} file={f} />)}
+            </div>
+          )}
         </div>
       )}
 
-      {/* CVEs section */}
+      {/* CVEs */}
       {hasCVEs && (
         <div className="border-t border-white/5 px-4 py-2 space-y-1.5">
           <p className="text-[10px] font-semibold text-[#ff3366] uppercase tracking-wide">Vulnerabilities</p>
@@ -188,9 +366,7 @@ function PackageCard({ pkg, onRemove }: { pkg: ResolvedPackage; onRemove?: () =>
           <p className="text-[10px] text-gray-600 mb-1.5">Direct dependencies ({c.dependencies.length})</p>
           <div className="flex flex-wrap gap-1">
             {c.dependencies.slice(0, 15).map((d) => (
-              <span key={d} className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#7c3aed]/10 text-[#a78bfa] border border-[#7c3aed]/20">
-                {d}
-              </span>
+              <span key={d} className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-[#7c3aed]/10 text-[#a78bfa] border border-[#7c3aed]/20">{d}</span>
             ))}
             {c.dependencies.length > 15 && (
               <span className="text-[10px] text-gray-600 self-center">+{c.dependencies.length - 15} more</span>
@@ -202,23 +378,34 @@ function PackageCard({ pkg, onRemove }: { pkg: ResolvedPackage; onRemove?: () =>
   );
 }
 
-function FileRow({ file }: { file: PackageFile }) {
+function FileRow({ file, isWouldInstall = false }: { file: PackageFile; isWouldInstall?: boolean }) {
   const s = FILE_TYPE_STYLE[file.file_type] ?? FILE_TYPE_STYLE.other;
   return (
-    <div className="rounded-lg border border-white/5 bg-black/30 p-2.5">
+    <div className={`rounded-lg border p-2.5 ${isWouldInstall ? "border-[#00ff88]/30 bg-[#00ff88]/5" : "border-white/5 bg-black/30"}`}>
       <div className="flex items-center gap-2 flex-wrap">
         <FileTypeBadge type={file.file_type} />
+        {isWouldInstall && (
+          <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#00ff88]/20 text-[#00ff88] border border-[#00ff88]/30">
+            ✓ WOULD INSTALL
+          </span>
+        )}
         <span className="font-mono text-[11px] text-gray-300 break-all">{file.filename}</span>
       </div>
-      <div className="mt-1.5 flex flex-wrap gap-3 text-[10px] text-gray-600 font-mono">
-        <span><span className="text-gray-500">size:</span> {fmt(file.size_bytes)}</span>
-        {file.python_version && file.python_version !== "source" && (
-          <span><span className="text-gray-500">python:</span> {file.python_version}</span>
+      <div className="mt-1.5 flex flex-wrap gap-x-4 gap-y-0.5 text-[10px] font-mono">
+        <span className="text-gray-600"><span className="text-gray-500">size:</span> {fmt(file.size_bytes)}</span>
+        {file.python_tag && (
+          <span className="text-gray-600"><span className="text-gray-500">python:</span> {file.python_tag}</span>
+        )}
+        {file.platform_os && file.platform_os !== "any" && (
+          <span className="text-gray-600"><span className="text-gray-500">os:</span> {OS_LABELS[file.platform_os] ?? file.platform_os}</span>
+        )}
+        {file.platform_arch && file.platform_arch !== "any" && (
+          <span className="text-gray-600"><span className="text-gray-500">arch:</span> {file.platform_arch}</span>
         )}
         {file.requires_python && (
-          <span><span className="text-gray-500">requires:</span> {file.requires_python}</span>
+          <span className="text-gray-600"><span className="text-gray-500">requires python:</span> {file.requires_python}</span>
         )}
-        <span className={`${s.text} opacity-70`}><span className="text-gray-500">sha256:</span> {file.sha256.slice(0, 20)}…</span>
+        <span className={`${s.text} opacity-60`}><span className="text-gray-500">sha256:</span> {file.sha256.slice(0, 20)}…</span>
       </div>
     </div>
   );

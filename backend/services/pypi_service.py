@@ -21,6 +21,57 @@ def _classify_file(filename: str, packagetype: str = "") -> str:
     return "other"
 
 
+def _parse_wheel_tags(filename: str) -> dict:
+    """Parse wheel filename to extract python/abi/platform tags.
+
+    Wheel format (PEP 427):
+      {distribution}-{version}(-{build})?-{python_tag}-{abi_tag}-{platform_tag}.whl
+    The last three dash-separated fields (before .whl) are always the three tags.
+    """
+    if not filename.endswith(".whl"):
+        return {}
+
+    stem = filename[:-4]
+    parts = stem.split("-")
+    if len(parts) < 5:
+        return {}
+
+    platform_tag = parts[-1]
+    abi_tag = parts[-2]
+    python_tag = parts[-3]
+
+    # OS from platform_tag
+    if "manylinux" in platform_tag or "musllinux" in platform_tag or platform_tag.startswith("linux"):
+        platform_os = "linux"
+    elif "macosx" in platform_tag or "darwin" in platform_tag:
+        platform_os = "macos"
+    elif platform_tag.startswith("win"):
+        platform_os = "windows"
+    elif platform_tag == "any":
+        platform_os = "any"
+    else:
+        platform_os = "other"
+
+    # Architecture from platform_tag
+    pt_lower = platform_tag.lower()
+    if "x86_64" in pt_lower or "amd64" in pt_lower:
+        platform_arch = "x86_64"
+    elif "arm64" in pt_lower or "aarch64" in pt_lower:
+        platform_arch = "arm64"
+    elif "i686" in pt_lower or "win32" in pt_lower:
+        platform_arch = "x86"
+    else:
+        platform_arch = "any"
+
+    return {
+        "python_tag": python_tag,
+        "abi_tag": abi_tag,
+        "platform_tag": platform_tag,
+        "platform_os": platform_os,
+        "platform_arch": platform_arch,
+    }
+
+
 async def fetch_package(name: str, version: str = None) -> Component:
     async with httpx.AsyncClient(timeout=15.0) as client:
         if version:
@@ -65,7 +116,7 @@ async def fetch_package(name: str, version: str = None) -> Component:
 
         url_files = data.get("urls", [])
 
-        # Collect ALL files with classification
+        # Collect ALL files with classification and parsed wheel tags
         package_files: list[PackageFile] = []
         seen_filenames = set()
         for fi in url_files:
@@ -74,6 +125,7 @@ async def fetch_package(name: str, version: str = None) -> Component:
                 continue
             seen_filenames.add(fname)
             ftype = _classify_file(fname, fi.get("packagetype", ""))
+            wheel_tags = _parse_wheel_tags(fname) if ftype == "wheel" else {}
             pf = PackageFile(
                 filename=fname,
                 file_type=ftype,
@@ -81,6 +133,11 @@ async def fetch_package(name: str, version: str = None) -> Component:
                 sha256=fi["digests"]["sha256"],
                 python_version=fi.get("python_version") or None,
                 requires_python=fi.get("requires_python") or None,
+                python_tag=wheel_tags.get("python_tag"),
+                abi_tag=wheel_tags.get("abi_tag"),
+                platform_tag=wheel_tags.get("platform_tag"),
+                platform_os=wheel_tags.get("platform_os"),
+                platform_arch=wheel_tags.get("platform_arch"),
             )
             package_files.append(pf)
 
@@ -95,7 +152,6 @@ async def fetch_package(name: str, version: str = None) -> Component:
             if pf.file_type == "wheel":
                 sha256 = pf.sha256
                 size = pf.size_bytes
-                # find upload_time from original url_files
                 for fi in url_files:
                     if fi["filename"] == pf.filename:
                         upload_date = fi.get("upload_time", "")
@@ -107,7 +163,6 @@ async def fetch_package(name: str, version: str = None) -> Component:
             for fi in url_files:
                 if fi["filename"] == package_files[0].filename:
                     upload_date = fi.get("upload_time", "")
-            
 
         requires = info.get("requires_dist") or []
         direct_deps = []

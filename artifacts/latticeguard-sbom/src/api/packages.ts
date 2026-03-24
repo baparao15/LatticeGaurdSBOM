@@ -15,6 +15,11 @@ export interface PackageFile {
   sha256: string;
   python_version?: string;
   requires_python?: string;
+  python_tag?: string;
+  abi_tag?: string;
+  platform_tag?: string;
+  platform_os?: "linux" | "macos" | "windows" | "any" | "other";
+  platform_arch?: "x86_64" | "arm64" | "x86" | "any";
 }
 
 export interface Component {
