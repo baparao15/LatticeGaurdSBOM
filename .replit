@@ -31,12 +31,12 @@ name = "Start application"
 author = "agent"
 
 [workflows.workflow.metadata]
-outputType = "webview"
+outputType = "console"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd /home/runner/workspace/backend && python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload & sleep 2 && PORT=5173 BASE_PATH=/ pnpm --filter @workspace/latticeguard-sbom run dev"
-waitForPort = 5173
+args = "cd /home/runner/workspace/backend && python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
+waitForPort = 8000
 
 [agent]
 stack = "PNPM_WORKSPACE"
