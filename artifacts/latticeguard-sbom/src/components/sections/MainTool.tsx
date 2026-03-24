@@ -233,9 +233,35 @@ function PackageCard({
           )}
         </div>
 
-        {/* Download verdict */}
-        {riskScore && (
+        {/* Files being downloaded — always visible as soon as package resolves */}
+        {pkg.component.files && pkg.component.files.length > 0 && (
           <div className="mt-3 border-t border-white/5 pt-3">
+            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5">
+              Downloading ({pkg.component.files.length} file{pkg.component.files.length !== 1 ? "s" : ""})
+            </p>
+            <div className="space-y-0.5 max-h-52 overflow-y-auto">
+              {pkg.component.files.map((f: PackageFile) => (
+                <div key={f.filename} className="flex items-center gap-2 text-[10px] font-mono py-0.5">
+                  <span className={`w-10 text-center px-1 py-0.5 rounded text-[9px] flex-shrink-0 ${
+                    f.file_type === "wheel" ? "bg-[#00d4ff]/10 text-[#00d4ff]" :
+                    f.file_type === "sdist" ? "bg-[#a78bfa]/10 text-[#a78bfa]" :
+                    "bg-white/5 text-gray-500"
+                  }`}>{f.file_type}</span>
+                  <span className="truncate text-gray-300 flex-1">{f.filename}</span>
+                  <span className="text-gray-600 flex-shrink-0">
+                    {f.size_bytes >= 1024 * 1024
+                      ? `${(f.size_bytes / 1024 / 1024).toFixed(1)} MB`
+                      : `${(f.size_bytes / 1024).toFixed(0)} KB`}
+                  </span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Download verdict — shown once risk scoring completes */}
+        {riskScore && (
+          <div className="mt-2 border-t border-white/5 pt-2">
             {(riskScore.risk_level === "HIGH" || riskScore.risk_level === "CRITICAL") ? (
               <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#ff3366]/10 border border-[#ff3366]/30">
                 <span className="text-base">🚫</span>
