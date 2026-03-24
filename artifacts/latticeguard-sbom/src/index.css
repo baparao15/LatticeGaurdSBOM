@@ -38,40 +38,73 @@
 }
 
 :root {
-  --background: 230 25% 4%;
-  --foreground: 210 40% 98%;
+  --background: 210 33% 98%;
+  --foreground: 230 25% 12%;
   
   /* Electric Blue */
-  --primary: 191 100% 50%;
-  --primary-foreground: 230 25% 4%;
+  --primary: 191 95% 42%;
+  --primary-foreground: 0 0% 100%;
   
   /* Quantum Purple */
-  --secondary: 262 83% 58%;
-  --secondary-foreground: 210 40% 98%;
+  --secondary: 262 70% 54%;
+  --secondary-foreground: 0 0% 100%;
   
   /* Dark Glass */
-  --muted: 230 20% 12%;
-  --muted-foreground: 215 20% 65%;
+  --muted: 214 32% 92%;
+  --muted-foreground: 220 12% 38%;
   
-  --accent: 262 83% 58%;
-  --accent-foreground: 210 40% 98%;
+  --accent: 191 95% 92%;
+  --accent-foreground: 230 25% 18%;
   
   /* Neon Green */
-  --success: 153 100% 50%;
-  --success-foreground: 230 25% 4%;
+  --success: 153 70% 36%;
+  --success-foreground: 0 0% 100%;
   
   /* Amber */
-  --warning: 38 92% 50%;
-  --warning-foreground: 230 25% 4%;
+  --warning: 38 85% 42%;
+  --warning-foreground: 0 0% 100%;
   
   /* Red Alert */
+  --destructive: 345 80% 48%;
+  --destructive-foreground: 0 0% 100%;
+  
+  --border: 215 22% 82%;
+  --input: 214 30% 96%;
+  --ring: 191 95% 42%;
+  
+  --card: 0 0% 100%;
+  --card-foreground: 230 25% 12%;
+}
+
+.dark {
+  --background: 230 25% 4%;
+  --foreground: 210 40% 98%;
+
+  --primary: 191 100% 50%;
+  --primary-foreground: 230 25% 4%;
+
+  --secondary: 262 83% 58%;
+  --secondary-foreground: 210 40% 98%;
+
+  --muted: 230 20% 12%;
+  --muted-foreground: 215 20% 65%;
+
+  --accent: 262 83% 58%;
+  --accent-foreground: 210 40% 98%;
+
+  --success: 153 100% 50%;
+  --success-foreground: 230 25% 4%;
+
+  --warning: 38 92% 50%;
+  --warning-foreground: 230 25% 4%;
+
   --destructive: 345 100% 59%;
   --destructive-foreground: 210 40% 98%;
-  
+
   --border: 230 20% 15%;
   --input: 230 20% 12%;
   --ring: 191 100% 50%;
-  
+
   --card: 230 20% 6%;
   --card-foreground: 210 40% 98%;
 }

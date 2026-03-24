@@ -1,7 +1,20 @@
 import { Shield, ShieldCheck } from "lucide-react";
 import { motion } from "framer-motion";
+import { Moon, Sun } from "lucide-react";
+import { useTheme } from "next-themes";
+import { useEffect, useState } from "react";
+import { Button } from "@/components/ui/button";
 
 export default function Navbar() {
+  const { resolvedTheme, setTheme } = useTheme();
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
+  const isDark = (resolvedTheme ?? "dark") === "dark";
+
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass-panel border-b border-white/5 h-16 flex items-center">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 w-full flex justify-between items-center">
@@ -28,6 +41,20 @@ export default function Navbar() {
         </div>
 
         <div className="flex items-center gap-3">
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+            className="rounded-full border border-border/60 bg-card/80 hover:bg-muted/60"
+            onClick={() => setTheme(isDark ? "light" : "dark")}
+          >
+            {mounted && isDark ? (
+              <Sun className="h-4 w-4 text-warning" />
+            ) : (
+              <Moon className="h-4 w-4 text-primary" />
+            )}
+          </Button>
           <div className="px-3 py-1.5 rounded-full bg-success/10 border border-success/30 flex items-center space-x-2">
             <ShieldCheck className="w-4 h-4 text-success" />
             <span className="text-xs font-bold text-success uppercase tracking-wider">FIPS 204</span>
