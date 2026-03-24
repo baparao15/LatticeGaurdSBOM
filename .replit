@@ -26,10 +26,6 @@ author = "agent"
 task = "workflow.run"
 args = "Start application"
 
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "LatticeGuard Backend"
-
 [[workflows.workflow]]
 name = "Start application"
 author = "agent"
@@ -39,20 +35,8 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "PORT=5173 BASE_PATH=/ pnpm --filter @workspace/latticeguard-sbom run dev"
+args = "cd /home/runner/workspace/backend && python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload & sleep 2 && PORT=5173 BASE_PATH=/ pnpm --filter @workspace/latticeguard-sbom run dev"
 waitForPort = 5173
-
-[[workflows.workflow]]
-name = "LatticeGuard Backend"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd /home/runner/workspace/backend && python3 -m uvicorn main:app --host 0.0.0.0 --port 8000 --reload"
-waitForPort = 8000
-
-[workflows.workflow.metadata]
-outputType = "console"
 
 [agent]
 stack = "PNPM_WORKSPACE"
