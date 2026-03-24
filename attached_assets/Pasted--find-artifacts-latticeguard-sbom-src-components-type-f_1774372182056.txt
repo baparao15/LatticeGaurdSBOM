@@ -1,0 +1,491 @@
+$ find artifacts/latticeguard-sbom/src/components -type f | sort
+Good. Now fix the Home.tsx imports (layout components are in a layout subdirectory):
+
+Let me also add the Comparison component to the page, and then update the packages.ts API to include all the new types and functions. Let me first check what the existing packages.ts looks like.
+
+Now update packages.ts with all the new types and API functions the MainTool needs:
+
+Good - packages.ts already has everything I need including the PackageFile.url field (I need to add it). Let me update that.
+
+Also, I notice the url field in PackageFile isn't in the existing packages.ts. Let me add it.
+
+The packages.ts already has all the types. I just need to add the url field to PackageFile:   this is the progress till now LatticeGuard SBOM — Complete Project Explanation & Pitch
+________________________________________
+What Is This Project In One Line
+"LatticeGuard is a pre-install quantum-safe verification layer that checks every dependency before it touches your system, signs the entire audit trail with ML-DSA-65, and produces a cryptographic proof that remains unforgeable even after quantum computers exist."
+________________________________________
+The Problem — What Is Actually Happening Right Now
+Most developers do this every day:
+pip install flask
+npm install lodash
+And never think twice. But here is what actually happens the moment you press enter:
+You type: pip install requests
+
+pip contacts PyPI or your company mirror
+         ↓
+Downloads a .whl or .tar.gz file
+         ↓
+Runs setup.py — arbitrary code execution
+         ↓
+Installs into your environment
+         ↓
+DONE — no questions asked
+At no point did pip ask:
+•	Is this the real requests or a fake one?
+•	Was this package tampered with on the mirror?
+•	Does this package run malicious code during install?
+•	Was the maintainer account compromised last week?
+•	Does this package have critical CVEs?
+•	What does this package itself depend on?
+This blind trust is how every major supply chain attack happened.
+________________________________________
+Real Attacks That Already Happened
+SolarWinds 2020
+What happened:
+  Hackers broke into SolarWinds build server
+  Injected malicious code into Orion software update
+  Update was digitally signed — looked 100% legitimate
+  18,000 organizations installed it
+  US Treasury, Pentagon, Microsoft — all compromised
+
+Why signatures didn't help:
+  The SIGNER was compromised
+  Signature proved it came from SolarWinds
+  Did not prove the contents were clean
+event-stream 2018 (npm)
+What happened:
+  event-stream had 8 million downloads per week
+  Original author handed control to a stranger
+  who offered to "help maintain" it
+  Stranger added one tiny new dependency:
+  flatmap-stream==0.1.1
+  That dependency contained encrypted malicious code
+  Targeted specifically at Bitcoin wallet app Copay
+  Stole Bitcoin from users for 59 days
+  Nobody noticed for 2 months
+
+Why it worked:
+  The attack was in a SUB-dependency
+  Nobody signs or checks transitive deps
+  The package itself looked clean
+colourama 2018 (PyPI)
+What happened:
+  Real package: colorama (terminal colors)
+  Fake package: colourama (1 letter different)
+  Developer makes a typo: pip install colourama
+  Gets a package that looks identical
+  Also steals cryptocurrency wallet credentials
+  Thousands of developers affected
+
+Why it worked:
+  pip never checked if the name was suspicious
+  No edit-distance check on package names
+  No warning that you might have made a typo
+Dependency Confusion 2021
+What happened:
+  Security researcher Alex Birsan discovered:
+  If your company has internal package mycompany-auth
+  He publishes mycompany-auth on PUBLIC PyPI
+  with a higher version number
+  pip automatically picks the public higher version
+  Got into: Microsoft, Apple, PayPal, Netflix, Uber
+
+Why it worked:
+  pip trusts public registry over internal
+  Higher version number = automatic preference
+  No verification that the source is correct
+________________________________________
+What LatticeGuard Does — The 8 Phases
+________________________________________
+BEFORE LatticeGuard existed — the old world:
+Developer → pip install → hope for the best
+                 ↓
+     No name checking
+     No CVE checking  
+     No tamper detection
+     No transitive dep analysis
+     No audit trail
+     No cryptographic proof
+     No quantum safety
+________________________________________
+AFTER LatticeGuard — the new world:
+________________________________________
+Phase 1 — Pre-Fetch Name Safety Gate
+This runs BEFORE any download happens. It is the most critical phase.
+You type: pip install reqeusts  (typo)
+
+LatticeGuard runs BEFORE contacting PyPI:
+
+Step 1: Normalize the name
+        reqeusts → reqeusts (homoglyph check: rn→m, 0→o etc)
+
+Step 2: Compare against ML-DSA-65 signed list
+        of top 8,000 most downloaded packages
+        (fetched from hugovk.github.io, signed on startup)
+
+Step 3: Run Levenshtein distance check
+        reqeusts vs requests → distance = 2
+        → TYPOSQUAT WARNING
+
+Step 4: Block with modal:
+        "This looks like a typosquat of 'requests'
+         Did you mean requests?
+         Proceeding could install malicious code."
+
+Step 5: Sign this verdict with ML-DSA-65
+        → Attestation: {verdict: TYPOSQUAT,
+                        nearest: requests,
+                        distance: 2,
+                        signature: 3293 bytes}
+
+The download NEVER happens unless user confirms.
+Why this is new: No existing tool does pre-fetch name verification with quantum-safe signed attestations.
+________________________________________
+Phase 2 — Real Package Risk Scoring
+Once name is verified, fetch real data and compute a 0-100 risk score:
+Package: flask==2.3.0
+
+Signal 1 — CVE Severity (from OSV.dev real API):
+  CVE-2023-30861 found: HIGH severity → +25 risk
+
+Signal 2 — Package Age:
+  First release: 2010 → stable → +0 risk
+
+Signal 3 — Maintainer Count:
+  Multiple maintainers → +0 risk
+
+Signal 4 — Download Volume:
+  50M+ downloads/month → +0 risk
+
+Signal 5 — Name Check:
+  VERIFIED → +0 risk
+
+Final Risk Score: 25/100 — LOW RISK ✅
+
+Different example — brand new suspicious package:
+  New package (2 months old): +15
+  Single maintainer: +15
+  Under 1000 downloads: +15
+  UNKNOWN name: +5
+  Final: 50/100 — MEDIUM RISK ⚠️
+________________________________________
+Phase 3 — Static Source Scan
+Downloads the source distribution (does NOT execute it) and scans for malicious patterns:
+Scanning setup.py of target-package==1.0.0...
+
+FOUND: exec(base64.b64decode(        ← obfuscated execution
+       Line 47, setup.py
+       Severity: CRITICAL
+
+FOUND: os.system(                    ← shell command on install
+       Line 52, setup.py
+       Severity: HIGH
+
+FOUND: requests.post("http://..."    ← network call on install
+       Line 58, setup.py
+       Severity: HIGH
+
+FOUND: os.getenv("AWS_ACCESS_KEY")   ← credential harvesting
+       Line 61, setup.py
+       Severity: CRITICAL
+
+Result: 4 findings — BLOCKED
+This package runs malicious code the moment
+you pip install it.
+This catches the event-stream style attack — the malicious code was hidden in setup files.
+________________________________________
+Phase 4 — PQC Signature Audit Log
+Every single action is cryptographically signed and logged:
+T+0.001s  Top-8K name list fetched and ML-DSA signed
+T+0.234s  Name check: numpy → VERIFIED → ML-DSA signed
+T+0.891s  Package metadata fetched → hash bound → ML-DSA signed
+T+1.203s  CVE check: 0 found → ML-DSA signed
+T+1.456s  Static scan: 0 findings → ML-DSA signed
+T+1.789s  Risk score: 12/100 → ML-DSA signed
+T+2.001s  SBOM signed: Hybrid ML-DSA-65 + Ed25519
+
+Each entry:
+  Algorithm: ML-DSA-65 (FIPS-204)
+  Security Level: NIST Level 3
+  Signature: a3f8b2c1... (3,293 bytes)
+  Timestamp: verified
+This audit log is the legal proof that the software supply chain was clean at a specific point in time.
+________________________________________
+Phase 5 — Quantum Threat Simulator
+Shows judges exactly why classical signatures fail and why ML-DSA doesn't:
+Classical ECDSA:
+  Security based on: Elliptic Curve Discrete Log
+  Classical computer attack: > age of universe ✅
+  Quantum computer (Shor's Algorithm): hours ❌
+  → Completely broken by quantum computers
+
+ML-DSA-65:
+  Security based on: Module Learning With Errors
+  Classical computer attack: > age of universe ✅
+  Quantum computer (Shor's Algorithm): doesn't apply ✅
+  Quantum computer (Grover's Algorithm): 2^128 ops ✅
+  → No known quantum attack
+________________________________________
+Phase 6 — License Compliance
+Your project dependency licenses:
+  flask:     BSD-3-Clause     ✅ Permissive
+  numpy:     BSD-3-Clause     ✅ Permissive
+  django:    BSD-3-Clause     ✅ Permissive
+  somelib:   GPL-3.0          ⚠️ COPYLEFT WARNING
+  
+  GPL-3.0 detected: If you distribute this software,
+  your entire codebase must be open-sourced.
+  
+  Signed compliance report generated.
+________________________________________
+Phase 7 — Enhanced SBOM Export
+A ZIP bundle containing 6 files:
+latticeguard-export.zip
+├── latticeguard-sbom.json        ← CycloneDX 1.5 SBOM
+├── name-attestations.json        ← signed name verdicts
+├── static-scan-results.json      ← signed scan findings
+├── risk-scores.json              ← signed risk breakdown
+├── public-keys.pem               ← ML-DSA + Ed25519 keys
+└── verify.py                     ← run anywhere, no
+                                     LatticeGuard needed
+Anyone can run:
+python verify.py
+→ Verifying SBOM signatures.......... ✅
+→ Verifying name attestations......... ✅
+→ Verifying static scan results....... ✅
+→ Verifying risk score integrity...... ✅
+→ All 6 components quantum-safe verified
+→ Audit trail: INTACT
+________________________________________
+Phase 8 — CI/CD Integration
+Paste into your GitHub Actions:
+- name: LatticeGuard Quantum-Safe Scan
+  run: |
+    curl -X POST https://your-api/packages/resolve \
+      -d @requirements.txt | \
+      python verify.py --fail-on-risk 60
+Every pull request that changes dependencies gets automatically scanned. High risk packages block the merge.
+________________________________________
+Where It Is Useful — Industry Applications
+________________________________________
+Healthcare
+Problem: Hospital software stores patient data for 20 years.
+         Audit records must be legally binding for decades.
+
+Without LatticeGuard:
+  ECDSA-signed SBOM from 2024
+  Quantum computer exists in 2035
+  Attacker forges the 2024 SBOM retroactively
+  Audit record is worthless
+
+With LatticeGuard:
+  ML-DSA-65 signed SBOM from 2024
+  Quantum computer exists in 2035
+  Attacker cannot forge ML-DSA signatures
+  Audit record remains legally valid
+Defense & Government
+NIST mandate: All federal agencies must migrate
+to post-quantum cryptography.
+CISA directive: PQC migration by 2030.
+
+LatticeGuard already produces FIPS-204 compliant
+signed SBOMs — agencies can use this today
+to start their PQC-compliant audit trail.
+Finance & Banking
+Problem: Banks must prove software supply chain
+integrity for regulatory compliance.
+Signed SBOMs are becoming a legal requirement.
+
+A quantum-safe signed SBOM from LatticeGuard
+satisfies both current regulations AND
+future post-quantum requirements.
+No need to re-sign everything later.
+Open Source Projects
+Log4Shell happened because nobody was watching
+the dependency tree.
+
+LatticeGuard in CI means:
+  Every PR that adds a dependency gets scanned
+  New transitive deps are flagged immediately
+  CVEs trigger automatic alerts
+  Maintainer account compromises are detected
+  via static scan of malicious setup.py patterns
+Software Vendors Shipping to Enterprise
+Enterprise customer asks:
+"Prove your dependencies were clean and
+ unmodified when you shipped to us."
+
+Vendor hands over LatticeGuard ZIP.
+Customer runs verify.py.
+Gets cryptographic proof — no trust required.
+The math proves it.
+________________________________________
+How It Works As a Real Enforcement Layer
+Not just an analysis tool — a full enforcement wrapper:
+Developer types:
+  lginstall numpy==1.26.0
+
+Instead of:
+  pip install numpy==1.26.0
+
+What happens:
+  1. Name check → VERIFIED ✅
+  2. CVE check → 0 critical CVEs ✅
+  3. Risk score → 8/100 ✅
+  4. SHA-256 fetched from PyPI
+  5. pip downloads the package
+  6. LatticeGuard verifies downloaded bytes
+     match PyPI's published SHA-256
+  7. Signed installation attestation written
+     to local install-log.json
+  8. Install proceeds
+
+If anything fails → install blocked
+before setup.py ever runs
+before malicious code ever executes
+________________________________________
+The Post-Quantum Cryptography Connection
+This is the core of why LatticeGuard is different from every existing tool.
+________________________________________
+Why Classical Signatures Work Today
+ECDSA signature security:
+  Based on: Elliptic Curve Discrete Log Problem
+  
+  Given public key Q and base point G,
+  find private key k such that Q = k·G
+  
+  Classical computer: 2^128 operations
+  At 10^15 operations/second = 10^23 years
+  
+  Completely safe today. ✅
+Why They Will Fail Tomorrow
+Peter Shor, 1994:
+  Published quantum algorithm that solves
+  Discrete Log and Integer Factorization
+  in POLYNOMIAL time on a quantum computer.
+
+  Same problem that takes classical computer
+  10^23 years takes quantum computer
+  hours to days.
+
+  Every ECDSA and RSA signature ever made
+  becomes FORGEABLE retroactively.
+The Harvest Now Decrypt Later Attack
+Nation-state adversaries are doing this RIGHT NOW:
+
+2024: Intercept and store your signed SBOM
+      (cannot break it yet)
+      
+2035: Quantum computer becomes capable
+
+2035: Retroactively forge your 2024 SBOM
+      Claim a malicious package was verified clean
+      Your entire audit trail is worthless
+      Your compliance records are forgeable
+      Your legal proof is invalid
+
+This is not hypothetical.
+CISA and NSA have both confirmed
+HNDL attacks are an active documented strategy.
+Why ML-DSA-65 Solves This
+ML-DSA is based on Module Learning With Errors:
+
+Given: A (random matrix) and b = As + e
+Find:  secret vector s
+       where e is small random noise
+
+Classical computer: exponential time ❌ (can't solve)
+Quantum computer:   exponential time ❌ (still can't solve)
+
+Shor's algorithm: doesn't apply (no periodicity structure)
+Grover's algorithm: gives square root speedup only
+                    handled by larger parameters
+                    still 2^128 operations minimum
+
+NIST evaluated this for 8 years.
+Standardized as FIPS-204 in August 2024.
+No known classical or quantum attack.
+Why LatticeGuard Uses Hybrid Signing
+Ed25519 + ML-DSA-65 together:
+
+Ed25519:
+  15 years of real-world battle testing
+  If ML-DSA has an unknown flaw → Ed25519 protects you today
+
+ML-DSA-65:
+  Quantum resistant
+  If quantum computer breaks Ed25519 → ML-DSA protects you
+
+To forge a LatticeGuard signature you must break BOTH.
+That means breaking BOTH an elliptic curve AND
+a 1024-dimensional lattice problem simultaneously.
+
+No known attack on either simultaneously.
+This is exactly what NIST and IETF
+recommend for the 2024-2030 transition period.
+________________________________________
+The One-Paragraph Pitch
+"Every day developers blindly run pip install and trust that what they get is what they asked for. SolarWinds, event-stream, and colourama proved that trust is wrong. LatticeGuard is an 8-phase verification layer that checks the package name before any download, scores risk across 5 signals, scans source code for malicious install hooks, and signs the entire audit trail with ML-DSA-65 — the NIST FIPS-204 standard for post-quantum cryptography. Unlike every existing tool, our signatures are mathematically unforgeable not just today but after quantum computers exist, because they are based on the Module Learning With Errors problem which Shor's algorithm cannot break. A hospital storing compliance records for 20 years, a defense contractor proving supply chain integrity, a bank satisfying regulatory requirements — all of them need signatures that last. Traditional tools give you security that expires. LatticeGuard gives you security with no known expiry date."
+________________________________________
+Summary Table — Before vs After
+What happens	Without LatticeGuard	With LatticeGuard
+Typo in package name	Installs malware silently	Blocked before download
+Dependency confusion attack	Installs wrong package	Blocked by version attestation
+Compromised maintainer	Malicious code runs on install	Caught by static scan
+Mirror tampered package	Installs silently	SHA-256 mismatch → blocked
+Package has critical CVE	Nobody tells you	Shown before install
+Audit record forged by quantum computer	Impossible to detect	Impossible to forge
+Compliance proof in 20 years	Invalid (ECDSA broken)	Valid (ML-DSA unbroken)
+Transitive dep compromised	Nobody checks	Full tree signed and verified
+
+  this is my project do not remove any things and do not fake anything and the prompt i gave for building is  I am providing a project specification document below. Your task is to implement EVERYTHING mentioned in the document completely and correctly.
+
+STRICT INSTRUCTIONS:
+
+1. Do NOT skip any feature.
+2. Do NOT fake implementations or use placeholders.
+3. Every feature must be fully functional with real logic and proper handling.
+4. Follow a PHASE-BY-PHASE approach:
+   - Break the project into clear phases (Phase 1, Phase 2, etc.)
+   - Explain what is implemented in each phase
+   - Then provide the code for that phase
+
+5. Code Quality Requirements:
+   - Clean, readable, well-structured code
+   - Proper folder structure
+   - Use best practices (naming, modularization, separation of concerns)
+   - Add comments where necessary
+   - Include error handling and edge cases
+
+6. Tech Stack:
+   - If not specified, choose the best modern stack and justify briefly
+   - Prefer scalable and industry-standard tools
+
+7. Deliverables:
+   - Complete working code (not partial)
+   - Folder structure
+   - Installation steps
+   - Environment setup (.env if needed)
+   - Database setup (if applicable)
+   - API endpoints (if applicable)
+   - Sample test data (if useful)
+
+8. Deployment:
+   - Make the project deployment-ready
+   - Provide clear steps to deploy (e.g., Vercel / Netlify / AWS / Render)
+   - Ensure no missing dependencies
+
+9. Extra Improvements:
+   - Add any relevant features that improve the project (even if not mentioned)
+   - But do NOT remove or alter required features
+
+10. Output Format:
+   - Phase-wise explanation
+   - Then code blocks
+   - Then setup & deployment guide
+
+IMPORTANT:
+This must be a REAL, runnable project—not a conceptual answer.
+
+Now here is the document:
+[PASTE YOUR DOCUMENT HERE]     so now complete the remaining implemention of this and do not fake anything

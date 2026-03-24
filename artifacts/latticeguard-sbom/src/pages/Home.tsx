@@ -19,6 +19,7 @@ export default function Home() {
       <HowItWorks />
       <MainTool />
       <QuantumThreat />
+      <Comparison />
       <AuditLog />
       <CiCdPanel />
       <Verification />
