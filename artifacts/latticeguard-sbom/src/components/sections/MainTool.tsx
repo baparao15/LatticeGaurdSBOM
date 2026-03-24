@@ -239,50 +239,26 @@ function PackageCard({
           )}
         </div>
 
-        {/* Distribution files — always visible, full list */}
-        {pkg.component.files && pkg.component.files.length > 0 && (
+        {/* Download verdict */}
+        {riskScore && (
           <div className="mt-3 border-t border-white/5 pt-3">
-            <p className="text-[10px] text-gray-600 uppercase tracking-wider mb-1.5 flex items-center gap-2">
-              <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#00d4ff] animate-pulse" />
-              Distribution Files
-              <span className="text-gray-700 normal-case">({pkg.component.files.length} file{pkg.component.files.length !== 1 ? "s" : ""})</span>
-            </p>
-            <div className="space-y-1 max-h-48 overflow-y-auto pr-1">
-              {pkg.component.files.map((f: PackageFile, i: number) => (
-                <motion.div
-                  key={f.filename}
-                  initial={{ opacity: 0, x: -6 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  transition={{ delay: i * 0.04 }}
-                  className="flex items-center gap-2 text-[10px] font-mono rounded px-1.5 py-1 hover:bg-white/5 transition-colors group"
-                >
-                  <span className={`px-1 py-0.5 rounded text-[9px] flex-shrink-0 ${
-                    f.file_type === "wheel"     ? "bg-[#00d4ff]/10 text-[#00d4ff] border border-[#00d4ff]/20" :
-                    f.file_type === "sdist"     ? "bg-[#a78bfa]/10 text-[#a78bfa] border border-[#a78bfa]/20" :
-                    f.file_type === "egg"       ? "bg-[#ff9900]/10 text-[#ff9900] border border-[#ff9900]/20" :
-                    f.file_type === "installer" ? "bg-[#ff3366]/10 text-[#ff3366] border border-[#ff3366]/20" :
-                    "bg-white/5 text-gray-500"
-                  }`}>{f.file_type}</span>
-                  <span className="truncate text-gray-400 flex-1 group-hover:text-gray-200 transition-colors">
-                    {f.filename}
-                  </span>
-                  {f.platform_os && f.platform_os !== "any" && (
-                    <span className="text-gray-700 flex-shrink-0 hidden sm:inline">
-                      {f.platform_os === "linux" ? "🐧" : f.platform_os === "macos" ? "" : f.platform_os === "windows" ? "🪟" : ""}
-                      {f.platform_arch && f.platform_arch !== "any" ? ` ${f.platform_arch}` : ""}
-                    </span>
-                  )}
-                  <span className="text-gray-600 flex-shrink-0 ml-auto">
-                    {f.size_bytes >= 1024 * 1024
-                      ? `${(f.size_bytes / 1024 / 1024).toFixed(1)} MB`
-                      : `${(f.size_bytes / 1024).toFixed(0)} KB`}
-                  </span>
-                  <span className="text-gray-800 font-mono text-[9px] flex-shrink-0 hidden md:inline" title={`SHA256: ${f.sha256}`}>
-                    {f.sha256.slice(0, 8)}…
-                  </span>
-                </motion.div>
-              ))}
-            </div>
+            {(riskScore.risk_level === "HIGH" || riskScore.risk_level === "CRITICAL") ? (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#ff3366]/10 border border-[#ff3366]/30">
+                <span className="text-base">🚫</span>
+                <div>
+                  <p className="text-xs font-bold text-[#ff3366]">RISKY — Do Not Download</p>
+                  <p className="text-[10px] text-[#ff3366]/70">This package poses a {riskScore.risk_level.toLowerCase()} risk. Avoid installing.</p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#00ff88]/10 border border-[#00ff88]/30">
+                <span className="text-base">✅</span>
+                <div>
+                  <p className="text-xs font-bold text-[#00ff88]">SAFE — Download Approved</p>
+                  <p className="text-[10px] text-[#00ff88]/70">Risk level is {riskScore.risk_level.toLowerCase()}. Safe to install.</p>
+                </div>
+              </div>
+            )}
           </div>
         )}
       </div>
